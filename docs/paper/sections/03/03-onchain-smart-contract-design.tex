@@ -1,0 +1,26 @@
+% !TeX root = ../../main.tex
+
+\subsection{On-chain Smart Contract Design}
+\subsubsection{State Model}
+Each campaign is represented by immutable creator identity and mutable state variables (goal, deadline, raised amount, status, withdrawn flag, metadata CID). The lifecycle is defined by a small set of states, and transitions are deterministic based on deadline and funding outcome. The core states are summarized in Table~\ref{tab:campaign_states}.
+\begin{table}[htbp]
+\centering
+\caption{Campaign Lifecycle States}
+\label{tab:campaign_states}
+\begin{tabularx}{\columnwidth}{@{\extracolsep{\fill}}p{0.28\columnwidth}X@{}}
+    \toprule
+    \textbf{State} & \textbf{Definition} \\
+    \midrule
+    ACTIVE & Accepts contributions until the deadline. \\
+    SUCCESS & Finalized after the deadline if raised $\ge$ goal; allows creator withdrawal. \\
+    FAILED & Finalized after the deadline if raised $<$ goal; allows contributor refunds. \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Core Functions and Authorization}
+Authorization is enforced at contract level, and each entry point is scoped to a minimal role. The public interface includes \emph{createCampaign(goalWei, deadlineTs, metadataCID)} to create a campaign (emitting \emph{CampaignCreated}), \emph{contribute(campaignId)} to accept funds (emitting \emph{ContributionReceived}), and \emph{finalizeCampaign(campaignId)} to transition ACTIVE $\rightarrow$ SUCCESS/FAILED after the deadline (emitting \emph{CampaignFinalized}). Funds flows are restricted: \emph{withdrawFunds(campaignId)} is creator-only and emits \emph{FundsWithdrawn}, while \emph{refund(campaignId)} is contributor-only (requires a positive contribution) and emits \emph{RefundIssued}.
+To preserve composability, off-chain systems depend on events as the canonical state change log.
+
+\subsubsection{Security Considerations}
+Withdraw and refund paths are implemented using checks-effects-interactions and/or reentrancy guards. Contributor iteration is avoided on-chain and individual refunds are pull-based. Oracle callbacks are restricted to an authorized oracle address.

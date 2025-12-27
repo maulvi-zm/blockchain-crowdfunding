@@ -1,0 +1,43 @@
+% !TeX root = ../main.tex
+\section{Related Work}
+
+Crowdfunding has been widely adopted through centralized online platforms such as
+Kickstarter and GoFundMe, which provide end-to-end services for campaign creation,
+donation processing, and fund distribution \cite{b5,b6}. These platforms operate under
+a trusted intermediary model, where campaign validation, fund custody, and refund
+decisions are controlled by the platform operator. While this approach simplifies user
+experience and scalability, it introduces fundamental limitations related to transparency,
+auditability, and single points of failure. Contributors must rely on the platform to
+correctly enforce campaign rules and refund policies, particularly in cases of failed or
+disputed campaigns.
+
+From an academic perspective, the dynamics and challenges of centralized crowdfunding
+have been studied extensively. Mollick analyzed behavioral and structural aspects of
+crowdfunding platforms, highlighting the importance of trust and information asymmetry
+between contributors and campaign creators \cite{b1}. However, such studies generally
+assume centralized governance and do not address technical enforcement of trust through
+decentralized mechanisms.
+
+To mitigate these limitations, blockchain-based crowdfunding systems have been proposed
+as an alternative. Several works demonstrate the use of smart contracts to encode
+crowdfunding logic, such as funding goals, deadlines, and conditional fund release, directly
+on-chain, enabling transparent and immutable execution \cite{b2}. These approaches reduce
+reliance on centralized intermediaries and ensure that contributors can independently
+verify campaign outcomes. Nevertheless, many existing implementations focus primarily on
+on-chain logic and do not sufficiently address usability, off-chain integration, or failure
+handling, which limits their applicability in real-world scenarios.
+
+Another relevant research direction concerns the integration of off-chain data into
+blockchain systems through oracle mechanisms. Zhang et al.\ discussed architectural
+constraints of smart contracts and emphasized the necessity of external data sources for
+practical applications \cite{b3}. Caldarelli further analyzed the oracle problem, showing
+that oracle-based designs introduce new risks such as data manipulation, delayed responses,
+and availability failures \cite{b4}. While oracle mechanisms have been widely studied in
+domains such as decentralized finance, their systematic application in crowdfunding,
+particularly for handling campaign finalization and adverse scenarios, remains limited.
+
+In contrast to prior work, this project combines insights from centralized crowdfunding
+platforms with decentralized smart contract execution and oracle-based off-chain
+integration. The proposed system emphasizes transparent campaign lifecycle management,
+deterministic refund logic, and robust handling of off-chain failures, thereby addressing
+both trust and practicality concerns in blockchain-based crowdfunding applications.

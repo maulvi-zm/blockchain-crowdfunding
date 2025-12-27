@@ -1,0 +1,15 @@
+% !TeX root = ../main.tex
+\section{Introduction}
+Crowdfunding has emerged as an important digital mechanism for enabling collective funding of projects, social initiatives, and entrepreneurial ventures. Conventional crowdfunding platforms, however, are typically centralized systems that rely on a trusted intermediary to manage campaign creation, fund custody, and settlement processes. This centralized control introduces several limitations, including lack of transparency in fund flows, delayed settlement, single points of failure, and the potential for disputes regarding campaign success or refund eligibility. These challenges become more pronounced in environments where trust between contributors and campaign creators is limited, motivating the exploration of decentralized alternatives.
+
+Blockchain technology offers a promising foundation for addressing these issues by enabling transparent, immutable, and verifiable execution of business logic through smart contracts. By encoding crowdfunding rules directly on-chain, such as funding goals, deadlines, and fund release conditions, blockchain-based decentralized applications (dApps) can reduce reliance on intermediaries while ensuring that all participants observe the same system state. Nevertheless, purely on-chain solutions face practical constraints, particularly when interacting with off-chain data, managing user-friendly interfaces, and handling failure scenarios such as incomplete campaigns or delayed confirmations.
+
+This paper presents the design and implementation of a blockchain-based crowdfunding dApp that integrates on-chain smart contracts with off-chain components, including a frontend interface, wallet integration, and an oracle mechanism. The proposed system focuses on enforcing transparent campaign lifecycle management, secure fund handling, and deterministic refund processes when campaign conditions are not met. In addition, the architecture explicitly separates concerns between on-chain and off-chain components to improve scalability, maintainability, and user experience, while incorporating security considerations aligned with common smart contract threat models.
+
+The main contributions of this work are as follows:
+\begin{enumerate}
+\item The formulation of a crowdfunding business logic that ensures trustless campaign finalization and refundability.
+\item A modular system architecture that integrates smart contracts, off-chain indexing, and oracle-based data retrieval.
+\item An evaluation of the system's robustness in handling adverse scenarios such as failed campaigns and off-chain data unavailability.
+\end{enumerate}
+Through this approach, the project demonstrates how decentralized crowdfunding can be implemented in a practical and secure manner on a private blockchain environment, serving as a reference design for similar dApps.

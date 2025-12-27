@@ -1,0 +1,11 @@
+% !TeX root = ../../main.tex
+
+\subsection{End-to-End Interaction Flows}
+Fig.~\ref{fig:sequence} shows the key sequence for finalize with oracle update. Similar sequences exist for create, contribute, withdraw, and refund.
+
+\begin{figure}[htbp]
+  \centering
+\includegraphics[width=\columnwidth]{../images/finalize-flow.png}
+  \caption{Sequence diagram: oracle-assisted finalize flow. SC requests data; OR fetches external API and submits callback; user calls finalize; BE indexes the resulting event updates.}
+  \label{fig:sequence}
+\end{figure}

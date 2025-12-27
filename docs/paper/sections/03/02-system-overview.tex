@@ -1,0 +1,11 @@
+% !TeX root = ../../main.tex
+
+\subsection{System Overview}
+Fig.~\ref{fig:architecture} presents the high-level architecture. Users interact through a web frontend (FE) that connects to a wallet (e.g., MetaMask) to sign transactions. The smart contract (SC) stores core campaign state and emits events. A backend indexer (BE) listens to events and materializes a database for fast search and analytics. An oracle service (OR) listens for on-chain oracle requests, fetches external data via HTTP APIs, and submits signed callbacks to the contract. :contentReference[oaicite:1]{index=1}
+
+\begin{figure}[htbp]
+  \centering
+\includegraphics[width=0.7\columnwidth]{../images/application-architecture.png}
+  \caption{High-level architecture of the crowdfunding dApp: FE (wallet-signed transactions) interacts with SC; BE indexes on-chain events into a DB for query; OR fetches off-chain data and submits callbacks.}
+  \label{fig:architecture}
+\end{figure}

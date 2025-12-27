@@ -1,0 +1,30 @@
+% !TeX root = ../main.tex
+\title{
+Secure Sharing of Machine Learning Models with Digital Watermarking
+}
+
+\author{\IEEEauthorblockN{Muhammad Yusuf Rafi}
+\IEEEauthorblockA{\textit{Department of Informatics Engineering} \\
+\textit{SEEI, Bandung Institute of Technology} \\
+13522001@std.stei.itb.ac.id}
+\and
+\IEEEauthorblockN{Maulvi Ziadinda Maulana}
+\IEEEauthorblockA{\textit{Department of Informatics Engineering} \\
+\textit{Bandung Institute of Technology} \\
+13522122@std.stei.itb.ac.id}
+\and
+\IEEEauthorblockN{Ikhwan Al-Hakim}
+\IEEEauthorblockA{\textit{Department of Informatics Engineering} \\
+\textit{SEEI, Bandung Institute of Technology} \\
+13522147@std.stei.itb.ac.id}
+}
+
+\maketitle
+
+\begin{abstract}
+This paper presents an experimental study on parameter-based digital watermarking for neural networks to support secure sharing of machine learning models. A simple CNN trained on MNIST is watermarked after training using a post-training embedding approach with fixed normalization, and the impact on model fidelity is measured against a non-watermarked baseline. Watermark reliability is assessed via bit accuracy, exact match, and Hamming distance, while robustness is evaluated under fine-tuning and parameter pruning attacks. Results show that watermark embedding preserves model accuracy perfectly (zero degradation) and achieves high extraction reliability (85.94\% bit accuracy), with the watermark successfully surviving both fine-tuning and pruning attacks, demonstrating the effectiveness of the post-training embedding method for practical ownership verification.
+\end{abstract}
+
+\begin{IEEEkeywords}
+digital watermarking, neural networks, model ownership, robustness, verification
+\end{IEEEkeywords}

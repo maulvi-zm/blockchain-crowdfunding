@@ -1,0 +1,18 @@
+% !TeX root = ../../main.tex
+
+\subsection{Backend Indexer and Read Model}
+\subsubsection{Motivation}
+Direct on-chain querying is expensive and limited for search, filter, and pagination. Therefore, a backend indexer subscribes to contract events and maintains a read-optimized database.
+
+\subsubsection{Event-driven Materialization}
+The BE listens to:
+\texttt{CampaignCreated}, \texttt{ContributionReceived}, \texttt{CampaignFinalized}, \texttt{FundsWithdrawn}, and \texttt{RefundIssued}.
+Each event deterministically updates relational tables (e.g., \texttt{campaigns}, \texttt{contributions}) and exposes REST endpoints such as listing campaigns and retrieving user contribution per campaign. :contentReference[oaicite:6]{index=6}
+
+\begin{figure}[htbp]
+  \centering
+  \centering
+  \includegraphics[width=0.7\columnwidth]{../images/indexing-flow.png}
+  \caption{Event-driven indexing: SC emits events; BE consumes logs and upserts DB state; FE reads via REST for efficient discovery and personalization.}
+  \label{fig:indexerflow}
+\end{figure}

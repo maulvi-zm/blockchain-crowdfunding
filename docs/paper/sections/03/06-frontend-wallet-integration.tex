@@ -1,0 +1,10 @@
+% !TeX root = ../../main.tex
+
+\subsection{Frontend and Wallet Integration}
+The FE provides:
+\begin{itemize}
+  \item Wallet connect/disconnect and network/account change handling.
+  \item Transaction initiation for contract write functions (create, contribute, finalize, withdraw, refund).
+  \item Transaction status feedback (pending/confirmed/reverted) and synchronized UI state via BE queries.
+\end{itemize}
+Reads are served primarily from the BE to provide a responsive donation-style experience (progress, contributors count, campaign discovery), while writes are signed by the user wallet to preserve decentralization. :contentReference[oaicite:7]{index=7}

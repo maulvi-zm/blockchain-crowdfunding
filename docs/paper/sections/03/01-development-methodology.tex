@@ -1,0 +1,11 @@
+% !TeX root = ../../main.tex
+
+\subsection{Development Methodology}
+We adopt an iterative engineering workflow with clear interface contracts between components.
+\begin{enumerate}
+  \item We define campaign lifecycle states (ACTIVE, SUCCESS, FAILED) and map each state transition to a contract function and event emission.
+  \item We lock the ABI (function signatures + events), REST endpoints for the indexer, and the oracle request and response format before implementation to enable parallel development.
+  \item We implement the Smart Contract (SC), Oracle (OR), Backend Indexer (BE), and Frontend (FE) as separate deployable modules.
+  \item We verify end-to-end flows (create, contribute, finalize, withdraw, refund) using contract events as the single source of truth for off-chain indexing.
+  \item We apply common mitigations such as reentrancy-safe refund and withdraw paths and oracle failure handling with retry or fallback and stale data checks.
+\end{enumerate}

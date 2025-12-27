@@ -1,0 +1,36 @@
+% !TeX root = ../../main.tex
+
+\subsection{Off-chain Oracle Design}
+\subsubsection{Oracle Workflow}
+The oracle mechanism enables the smart contract to incorporate external data. The contract emits \texttt{OracleDataRequested(campaignId, requestId, dataKey, param)}. The oracle service:
+\begin{enumerate}
+  \item Subscribes to \texttt{OracleDataRequested} events.
+  \item Queries an external API endpoint (HTTP).
+  \item Validates and normalizes data (e.g., fixed-point scaling).
+  \item Submits \texttt{oracleCallback(campaignId, requestId, dataKey, value, updatedAt)} as a signed transaction.
+\end{enumerate}
+
+\subsubsection{API Data Structure}
+The paper must document the API endpoint and JSON structure. As an example for exchange-rate usage:
+\begin{itemize}
+  \item Endpoint: \texttt{GET /rate?pair=ETH\_IDR}
+  \item JSON:
+\end{itemize}
+\begin{verbatim}
+{
+  "pair": "ETH_IDR",
+  "rate": 56000000.12,
+  "timestamp": 1769990000
+}
+\end{verbatim}
+The oracle converts \texttt{rate} to fixed-point integer (e.g., \texttt{value = rate * 100}) and sets \texttt{updatedAt} to the API timestamp. :contentReference[oaicite:4]{index=4}
+
+\subsubsection{Failure Handling and Oracle Manipulation Mitigation}
+To handle external API failures and oracle delays:
+\begin{itemize}
+  \item \textbf{Retry with backoff:} bounded retries (e.g., 3 attempts) before marking the request unresolved.
+  \item \textbf{Staleness checks:} the contract rejects updates older than a defined threshold or ignores stale values at finalize time.
+  \item \textbf{Single-fulfillment:} \texttt{requestId} is marked fulfilled to prevent replay.
+  \item \textbf{Trust boundary:} only a whitelisted oracle address may call \texttt{oracleCallback}.
+\end{itemize}
+These measures reduce risk from oracle downtime and manipulation attempts. :contentReference[oaicite:5]{index=5}
