@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant Backer as FE (Backer)
+    participant Wallet
+    participant SC as Smart Contract
+    participant BE as Backend
+
+    Backer->>Wallet: refund(campaignId)
+    Wallet->>SC: Transaction
+    
+    activate SC
+    SC->>SC: Check Status == FAILED
+    SC->>SC: Check contributions[id][sender] > 0
+    
+    Note right of SC: Reentrancy Protection
+    SC->>SC: amount = contribution
+    SC->>SC: contribution = 0 (Effect)
+    SC->>Backer: Transfer ETH (Interaction)
+    
+    SC-->>BE: Emit Event: RefundIssued
+    deactivate SC
+
+    BE->>BE: Update DB (contribution = 0)

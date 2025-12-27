@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant User as FE (User)
+    participant BE as Backend API
+    participant DB as Database
+
+    User->>BE: GET /campaigns?q="Education"&status=ACTIVE
+    activate BE
+    BE->>DB: SELECT * FROM campaigns WHERE ...
+    activate DB
+    DB-->>BE: Return Rows
+    deactivate DB
+    BE-->>User: JSON Response { items: [...], total: 15 }
+    deactivate BE
+    
+    Note over User: Render UI Cards (Instant load)

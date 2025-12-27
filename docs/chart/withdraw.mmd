@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant Creator as FE (Creator)
+    participant Wallet
+    participant SC as Smart Contract
+    participant BE as Backend
+
+    Creator->>Wallet: withdrawFunds(campaignId)
+    Wallet->>SC: Transaction
+    
+    activate SC
+    SC->>SC: Check msg.sender == Creator
+    SC->>SC: Check Status == SUCCESS
+    SC->>SC: Check withdrawn == false
+    
+    SC->>Creator: Transfer ETH (totalRaised)
+    SC->>SC: Set withdrawn = true
+    SC-->>BE: Emit Event: FundsWithdrawn
+    deactivate SC
+
+    BE->>BE: Update DB (withdrawn = true)

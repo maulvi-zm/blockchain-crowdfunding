@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant Backer as FE (Backer)
+    participant Wallet
+    participant SC as Smart Contract
+    participant BE as Backend Indexer
+    participant DB as Database
+
+    Backer->>Wallet: contribute(campaignId) {value: 1 ETH}
+    Wallet->>SC: Transaction (Payable)
+    activate SC
+    SC->>SC: Verify Status=ACTIVE & Deadline > Now
+    SC->>SC: contributions[id][sender] += msg.value
+    SC->>SC: totalRaised += msg.value
+    SC-->>BE: Emit Event: ContributionReceived
+    deactivate SC
+
+    Note over BE: Listens to event
+    activate BE
+    BE->>DB: UPDATE campaigns SET total_raised += value
+    BE->>DB: UPSERT contributions (sender, amount)
+    deactivate BE
+
+    Backer->>BE: GET /campaigns/:id
+    BE-->>Backer: Return updated total raised

@@ -1,0 +1,21 @@
+flowchart TB
+ subgraph subGraph0["Frontend Layer"]
+        FE["Frontend Application"]
+  end
+ subgraph subGraph1["Blockchain Layer"]
+        SC["Smart Contract"]
+        Logs["Event Logs"]
+  end
+ subgraph subGraph2["Backend Layer"]
+        Indexer["Event Consumer / Indexer"]
+        DB[("SQL Database")]
+        API["REST API Service"]
+  end
+    FE -- "1. Writes (Transactions)" --> SC
+    SC -- "2. State Change Emits" --> Logs
+    Logs -. "3. Listen & Parse" .-> Indexer
+    Indexer -- "4. Deterministic Upsert" --> DB
+    FE -- "5. Efficient Query (GET)" --> API
+    API -- "6. Select * WHERE..." --> DB
+    DB -. "7. Return Indexed Data" .-> API
+    API -. "8. JSON Response" .-> FE

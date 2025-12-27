@@ -1,0 +1,40 @@
+sequenceDiagram
+    participant FE
+    participant SC as Smart Contract
+    participant Oracle as Oracle Service
+    participant API as External API
+    participant BE as Backend
+
+    %% Step 1: Trigger Oracle
+    FE->>SC: requestOracleData(id, "ETH_IDR", "")
+    SC-->>Oracle: Emit Event: OracleDataRequested
+    
+    %% Step 2: Oracle Work
+    activate Oracle
+    Oracle->>API: GET /rate?pair=ETH_IDR
+    API-->>Oracle: { rate: 56000000 }
+    Oracle->>SC: oracleCallback(id, reqId, val, timestamp)
+    deactivate Oracle
+
+    activate SC
+    SC->>SC: Verify Oracle Address
+    SC->>SC: Update campaignOracleValue[id]
+    SC-->>FE: Emit Event: OracleDataUpdated
+    deactivate SC
+
+    %% Step 3: Finalize
+    FE->>SC: finalizeCampaign(id)
+    activate SC
+    SC->>SC: Check Deadline Passed
+    SC->>SC: Check Goal vs Raised (using Oracle Rate?)
+    
+    alt Goal Met
+        SC->>SC: Status = SUCCESS
+    else Goal Missed
+        SC->>SC: Status = FAILED
+    end
+    
+    SC-->>BE: Emit Event: CampaignFinalized
+    deactivate SC
+
+    BE->>BE: Update DB Status

@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant Creator as FE (Creator)
+    participant IPFS
+    participant Wallet
+    participant SC as Smart Contract
+    participant BE as Backend Indexer
+    participant DB as Database
+
+    Note over Creator: User fills form (Title, Img, etc.)
+    Creator->>IPFS: Upload JSON Metadata
+    IPFS-->>Creator: Return CID (string)
+    
+    Creator->>Wallet: createCampaign(goal, deadline, CID)
+    Wallet->>SC: Transaction: createCampaign
+    activate SC
+    SC->>SC: Validate inputs
+    SC->>SC: CampaignCount++
+    SC-->>BE: Emit Event: CampaignCreated
+    deactivate SC
+    
+    Note over BE: Listens to event
+    BE->>DB: INSERT into campaigns (status=ACTIVE)
+    BE->>IPFS: (Optional) Fetch Metadata details
+    BE->>DB: Update Title/Category columns
+    
+    Creator->>BE: GET /campaigns
+    BE-->>Creator: Returns new campaign list
