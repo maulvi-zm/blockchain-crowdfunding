@@ -1,0 +1,27 @@
+
+\subsection{Backend Indexer and Read Model}
+\subsubsection{Motivation}
+Direct on-chain querying is computationally expensive and poorly suited for
+search, filtering, and pagination operations. To address these limitations, a
+backend indexer subscribes to smart contract events and maintains a
+read-optimized database.
+
+\subsubsection{Event-driven Materialization}
+The backend indexer subscribes to the following on-chain events:
+\texttt{CampaignCreated}, \texttt{ContributionReceived},
+\texttt{CampaignFinalized}, \texttt{FundsWithdrawn}, and \texttt{RefundIssued}.
+Each event deterministically materializes state changes into relational tables
+(e.g., \texttt{campaigns}, \texttt{contributions}), forming a read-optimized
+projection of the on-chain state. The indexer exposes RESTful endpoints that
+support common read operations, such as campaign listing and per-user
+contribution retrieval.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.7\columnwidth]{../images/indexing-flow.png}
+  \caption{Event-driven indexing workflow in which the smart contract emits
+  events, the backend indexer consumes blockchain logs and materializes database
+  state, and the frontend queries the read model via RESTful APIs.}
+  \label{fig:indexerflow}
+\end{figure}
+

@@ -1,0 +1,11 @@
+stateDiagram-v2
+  [*] --> ACTIVE: createCampaign
+
+  ACTIVE --> SUCCESS: finalizeCampaign\n(now >= deadline && totalRaised >= goal)
+  ACTIVE --> FAILED: finalizeCampaign\n(now >= deadline && totalRaised < goal)
+
+  SUCCESS --> WITHDRAWN: withdrawFunds (creator)
+  FAILED --> REFUNDED: refund (contributors)
+
+  WITHDRAWN --> [*]
+  REFUNDED --> [*]

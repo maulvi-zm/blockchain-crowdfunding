@@ -1,0 +1,38 @@
+graph TD
+    %% Nodes
+    subgraph "Client Side"
+        User((User))
+        FE[Frontend SPA<br/>React + ethers.js]
+        Wallet[Wallet<br/>MetaMask]
+    end
+
+    subgraph "Off-Chain Storage & Indexing"
+        IPFS[IPFS<br/>Metadata Storage]
+        BE[Backend Indexer<br/>Node/Go Service]
+        DB[(Database<br/>PostgreSQL)]
+    end
+
+    subgraph "On-Chain (Blockchain)"
+        SC[Smart Contract<br/>Crowdfunding Logic]
+    end
+
+    subgraph "Oracle Services"
+        OR[Oracle Service<br/>Node.js Listener]
+        EXT_API[External API<br/>Rates/Verification]
+    end
+
+    %% Connections
+    User --> FE
+    FE -- "1. Upload Metadata" --> IPFS
+    IPFS -.->|Returns CID| FE
+    FE -- "2. Read Data (HTTP)" --> BE
+    FE -- "3. Initiate Tx" --> Wallet
+    Wallet -- "4. Sign & Send Tx" --> SC
+    
+    SC -- "5. Emit Events" --> BE
+    BE -- "6. Deterministic Upsert" --> DB
+    BE -.->|Read| DB
+    
+    SC -- "7. Request Data Event" --> OR
+    OR -- "8. Fetch Data" --> EXT_API
+    OR -- "9. Callback Tx" --> SC

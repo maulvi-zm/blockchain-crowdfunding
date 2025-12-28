@@ -1,0 +1,49 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage[labelfont=bf,labelsep=period,font=small]{caption}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\renewcommand{\thetable}{\arabic{table}}
+\renewcommand{\thefigure}{\arabic{figure}}
+\captionsetup[table]{name=Table}
+\captionsetup[figure]{name=Figure}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codeblue}{rgb}{0.1,0.1,0.7}
+\lstdefinestyle{jsonstyle}{
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{codeblue},
+  stringstyle=\color{black},
+  commentstyle=\color{codegray},
+  numbers=left,
+  numberstyle=\tiny\color{codegray},
+  stepnumber=1,
+  numbersep=6pt,
+  breaklines=true,
+  frame=single,
+  captionpos=b
+}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\input{frontmatter/frontmatter}
+\input{sections/01-introduction}
+\input{sections/02-related-work}
+\input{sections/03-methodology-system-design}
+\input{sections/04-implementation-evaluation}
+\input{sections/05-discussion}
+\input{sections/06-conclusion-future-work}
+\input{backmatter/backmatter}
+
+\end{document}

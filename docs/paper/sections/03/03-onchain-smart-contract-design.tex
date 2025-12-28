@@ -1,0 +1,58 @@
+
+\subsection{On-chain Smart Contract Design}
+\subsubsection{State Model}
+Each campaign is represented by an immutable creator identity and a set of
+mutable state variables, including the funding goal, deadline, total amount
+raised, campaign status, withdrawal flag, and an off-chain metadata content
+identifier (CID). The campaign lifecycle is defined by a small, finite set of
+states, with deterministic transitions governed by the campaign deadline and
+funding outcome. The core states are summarized in Table~\ref{tab:campaign_states}, and the transition logic is depicted in Fig.~\ref{fig:campaign-lifecycle}.
+
+\begin{table}[htbp]
+\centering
+\caption{Campaign Lifecycle States}
+\label{tab:campaign_states}
+\begin{tabularx}{\columnwidth}{@{\extracolsep{\fill}}p{0.28\columnwidth}X@{}}
+    \toprule
+    \textbf{State} & \textbf{Definition} \\
+    \midrule
+    ACTIVE & Accepts contributions until the campaign deadline. \\
+    SUCCESS & Finalized after the deadline if the raised amount meets or exceeds
+    the goal; allows creator withdrawal. \\
+    FAILED & Finalized after the deadline if the raised amount is below the goal;
+    allows contributor refunds. \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.65\columnwidth]{../images/campaign-lifecycle-state-machine.png}
+  \caption{Campaign lifecycle state machine showing finalize conditions and post-finalization actions.}
+  \label{fig:campaign-lifecycle}
+\end{figure}
+
+\subsubsection{Core Functions and Authorization}
+Authorization is enforced at the contract level, and each entry point is scoped
+to a minimal role. Campaigns are created via \texttt{createCampaign}, which
+initializes campaign parameters and emits a \texttt{CampaignCreated} event.
+Contributions are accepted through \texttt{contribute}, emitting
+\texttt{ContributionReceived} upon receipt of funds. After the campaign deadline,
+\texttt{finalizeCampaign} deterministically transitions the campaign from the
+\texttt{ACTIVE} state to either \texttt{SUCCESS} or \texttt{FAILED}, emitting
+\texttt{CampaignFinalized}.
+
+Fund flows are strictly restricted. The \texttt{withdrawFunds} function is
+callable only by the campaign creator and emits \texttt{FundsWithdrawn}, while
+\texttt{refund} is callable only by contributors with a positive recorded
+contribution and emits \texttt{RefundIssued}. To preserve composability and
+support off-chain indexing, external systems rely on emitted events as the
+canonical log of state transitions.
+
+\subsubsection{Security Considerations}
+Withdrawal and refund execution paths follow the checks-effects-interactions
+pattern and are additionally protected by reentrancy guards. Contributor
+iteration is deliberately avoided on-chain; instead, refunds are implemented as
+pull-based operations initiated by individual contributors. Oracle callbacks
+are restricted to a pre-authorized oracle address to prevent unauthorized state
+manipulation.
