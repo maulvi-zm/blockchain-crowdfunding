@@ -2,35 +2,58 @@
 
 \subsection{Off-chain Oracle Design}
 \subsubsection{Oracle Workflow}
-The oracle mechanism enables the smart contract to incorporate external data. The contract emits \texttt{OracleDataRequested(campaignId, requestId, dataKey, param)} and the oracle service:
-\begin{enumerate}
-  \item Subscribes to \texttt{OracleDataRequested} events.
-  \item Queries an external API endpoint (HTTP).
-  \item Validates and normalizes data (e.g., fixed-point scaling).
-  \item Submits \texttt{oracleCallback(campaignId, requestId, dataKey, value, updatedAt)} as a signed transaction.
+The oracle mechanism enables the smart contract to incorporate external data
+sources in a trust-controlled manner. When off-chain data is required, the smart
+contract emits an \texttt{OracleDataRequested} event containing the campaign
+identifier, a unique request identifier, a data key specifying the requested
+information, and an auxiliary parameter.
+
+The oracle service operates according to the following workflow:
+\begin{enumerate}[label=(\roman*)]
+  \item Subscribes to on-chain \texttt{OracleDataRequested} events.
+  \item Queries the corresponding external HTTP API endpoint.
+  \item Validates and normalizes the returned data (e.g., fixed-point scaling).
+  \item Submits the result on-chain via the \texttt{oracleCallback} function,
+        including the request identifier, data key, normalized value, and update
+        timestamp, as a signed transaction.
 \end{enumerate}
 
 \subsubsection{API Data Structure}
-The paper documents the API endpoint and JSON structure. Example exchange-rate usage:
-\begin{itemize}
-  \item Endpoint: \texttt{GET /rate?pair=ETH\_IDR}
-  \item JSON payload:
-\end{itemize}
-\begin{verbatim}
+The oracle queries an external HTTP API whose specification is summarized in Table~\ref{tab:oracle-api}. As shown in Listing~\ref{lst:oracle-json}, the response contains the currency pair, the exchange rate, and a UNIX timestamp.
+\begin{table}[t]
+\centering
+\caption{Oracle API specification}
+\label{tab:oracle-api}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Field} & \textbf{Value} \\
+\midrule
+Method & GET \\
+Endpoint & \texttt{/rate} \\
+Query parameter & \texttt{pair = ETH\_IDR} \\
+Response format & JSON \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{lstlisting}[style=jsonstyle, caption={Oracle API JSON response}, label={lst:oracle-json}]
 {
   "pair": "ETH_IDR",
   "rate": 56000000.12,
   "timestamp": 1769990000
 }
-\end{verbatim}
-The oracle converts \texttt{rate} to a fixed-point integer (e.g., \texttt{value = rate * 100}) and sets \texttt{updatedAt} to the API timestamp.
+\end{lstlisting}
+The oracle normalizes the floating-point exchange rate into a fixed-point integer before submitting it on-chain. Specifically,
+\begin{equation}
+v = \lfloor r \times 10^{2} \rfloor,
+\end{equation}
+where $r$ denotes the exchange rate returned by the API. The timestamp is propagated as the \texttt{updatedAt} field in the callback transaction.
 
 \subsubsection{Failure Handling and Oracle Manipulation Mitigation}
 To handle external API failures and oracle delays:
 \begin{itemize}
-  \item \textbf{Retry with backoff:} bounded retries (e.g., 3 attempts) before marking a request unresolved.
-  \item \textbf{Staleness checks:} the contract rejects updates older than a threshold or ignores stale values at finalize time.
-  \item \textbf{Single fulfillment:} \texttt{requestId} is marked fulfilled to prevent replay.
-  \item \textbf{Trust boundary:} only a whitelisted oracle address may call \texttt{oracleCallback}.
+  \item Retry with backoff: bounded retries (e.g., 3 attempts) before marking a request unresolved.
+  \item Staleness checks: the contract rejects updates older than a threshold or ignores stale values at finalize time.
+  \item Single fulfillment: \texttt{requestId} is marked fulfilled to prevent replay.
+  \item Trust boundary: only a whitelisted oracle address may call \texttt{oracleCallback}.
 \end{itemize}
 These measures reduce risk from oracle downtime and manipulation attempts.
