@@ -1,26 +1,23 @@
-import type { ReactNode } from 'react'
-
+import type { ReactNode, ButtonHTMLAttributes } from 'react'
 import { COLORS } from '../../theme/colors'
 
-type ButtonProps = {
+export type ButtonProps = {
   children: ReactNode
   primary?: boolean
   outline?: boolean
   className?: string
-  onClick?: () => void
-  type?: 'button' | 'submit' | 'reset'
-}
+} & ButtonHTMLAttributes<HTMLButtonElement>
 
 export function Button({
   children,
   primary = false,
   outline = false,
   className = '',
-  onClick,
-  type = 'button',
+  ...props
 }: ButtonProps) {
   const baseStyle =
-    'px-6 py-3 rounded-full font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-95'
+    'px-6 py-3 rounded-full font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-sm disabled:active:scale-100'
+
   const variantStyle = primary
     ? `${COLORS.primary} text-white ${COLORS.primaryHover}`
     : outline
@@ -28,7 +25,10 @@ export function Button({
       : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
 
   return (
-    <button type={type} onClick={onClick} className={`${baseStyle} ${variantStyle} ${className}`}>
+    <button
+      {...props}
+      className={`${baseStyle} ${variantStyle} ${className}`}
+    >
       {children}
     </button>
   )

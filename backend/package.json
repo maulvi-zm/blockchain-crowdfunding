@@ -1,0 +1,47 @@
+{
+  "name": "crowdfunding-backend-oracle",
+  "version": "1.0.0",
+  "description": "Backend Indexer and Oracle Service for Blockchain Crowdfunding with PostgreSQL",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/src/index.js",
+    "oracle": "tsx watch oracle/index.ts",
+    "oracle:start": "node dist/oracle/index.js",
+    "db:setup": "psql -U postgres -c 'CREATE DATABASE crowdfunding;'",
+    "db:migrate": "tsx src/db/init.ts",
+    "db:reset": "psql -U postgres -c 'DROP DATABASE IF EXISTS crowdfunding;' && npm run db:setup && npm run db:migrate",
+    "lint": "eslint . --ext .ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "keywords": [
+    "blockchain",
+    "crowdfunding",
+    "hono",
+    "oracle",
+    "ethereum",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "MIT",
+    "dependencies": {
+        "better-sqlite3": "^12.5.0",
+        "dotenv": "^17.2.3",
+        "ethers": "^6.16.0",
+        "hono": "^4.11.3",
+        "pg": "^8.16.3"
+    },
+    "devDependencies": {
+        "@types/better-sqlite3": "^7.6.13",
+        "@types/node": "^25.0.3",
+        "@types/pg": "^8.16.0",
+        "tsx": "^4.21.0",
+        "typescript": "^5.9.3"
+    }
+}
