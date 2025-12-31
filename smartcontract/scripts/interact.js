@@ -9,26 +9,35 @@ async function main() {
   const contract = await Crowdfunding.attach(contractAddress);
 
   console.log("--- Mencoba Create Campaign ---");
-  const goal = hre.ethers.utils.parseEther("5"); // 5 ETH
+  const goal = hre.ethers.utils.parseEther("0.02"); // 5 ETH
   const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 jam ke depan
   const cid = "ipfs://my-metadata-cid";
 
   // Memanggil fungsi createCampaign
-  const tx1 = await contract.connect(creator).createCampaign(goal, deadline, cid);
-  await tx1.wait(); // Tunggu transaksi masuk blok
-  console.log("Campaign berhasil dibuat!");
+  // const tx1 = await contract.connect(creator).createCampaign(goal, deadline, cid);
+  // await tx1.wait(); // Tunggu transaksi masuk blok
+  // console.log("Campaign berhasil dibuat!");
 
-  console.log("--- Mencoba Kontribusi ---");
-  // Memanggil fungsi contribute sambil mengirimkan uang (value)
-  const tx2 = await contract.connect(backer).contribute(1, { 
-    value: hre.ethers.utils.parseEther("1") 
-  });
-  await tx2.wait();
-  console.log("Berhasil kontribusi 1 ETH!");
+  // console.log("--- Mencoba Kontribusi ---");
+  // // Memanggil fungsi contribute sambil mengirimkan uang (value)
+  // const tx2 = await contract.connect(backer).contribute(1, { 
+  //   value: hre.ethers.utils.parseEther("0.02") 
+  // });
+  // await tx2.wait();
+  // console.log("Berhasil kontribusi 0.02 ETH!");
 
-  // Memanggil fungsi getter (read-only)
-  const campaign = await contract.campaigns(1);
-  console.log("Total Dana Terkumpul:", hre.ethers.utils.formatEther(campaign.totalRaisedWei), "ETH");
+  console.log("\n--- Mencoba Finalize Campaign ---");
+
+  const tx3 = await contract
+    .connect(owner) // siapa pun boleh finalize
+    .finalizeCampaign(1);
+
+  await tx3.wait();
+  console.log("🏁 Campaign berhasil difinalize");
+
+  // // Memanggil fungsi getter (read-only)
+  // const campaign = await contract.campaigns(1);
+  // console.log("Total Dana Terkumpul:", hre.ethers.utils.formatEther(campaign.totalRaisedWei), "ETH");
 }
 
 main().catch((error) => {

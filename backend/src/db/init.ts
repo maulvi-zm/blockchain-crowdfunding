@@ -79,15 +79,6 @@ export async function initDatabase() {
       
       CREATE INDEX IF NOT EXISTS idx_campaigns_creator 
       ON campaigns(creator_address);
-      
-      CREATE INDEX IF NOT EXISTS idx_campaigns_block 
-      ON campaigns(block_created);
-      
-      CREATE INDEX IF NOT EXISTS idx_campaigns_status 
-      ON campaigns(status);
-      
-      CREATE INDEX IF NOT EXISTS idx_campaigns_updated 
-      ON campaigns(updated_at DESC);
     `);
 
     // Create contributions table
@@ -165,7 +156,6 @@ export async function initDatabase() {
         cid TEXT PRIMARY KEY,
         title TEXT,
         description TEXT,
-        category VARCHAR(100),
         image TEXT,
         raw_json JSONB NOT NULL,
         fetched_at TIMESTAMP NOT NULL DEFAULT NOW()
@@ -174,13 +164,11 @@ export async function initDatabase() {
 
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_metadata_title 
-      ON metadata_cache USING GIN (to_tsvector('english', title));
+      ON metadata_cache USING GIN (to_tsvector('simple', title));
       
       CREATE INDEX IF NOT EXISTS idx_metadata_description 
-      ON metadata_cache USING GIN (to_tsvector('english', description));
+      ON metadata_cache USING GIN (to_tsvector('simple', description));
       
-      CREATE INDEX IF NOT EXISTS idx_metadata_category 
-      ON metadata_cache(category);
     `);
 
     // Create updated_at trigger function
@@ -233,7 +221,6 @@ export async function initDatabase() {
   }
 }
 
-// Graceful shutdown
 export async function closeDatabase() {
   await pool.end();
   console.log('  ✓ Database connections closed');

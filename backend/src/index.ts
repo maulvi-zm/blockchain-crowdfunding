@@ -2,6 +2,7 @@ import 'dotenv/config'
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
 import { campaignsRouter } from './routes/campaigns';
 import { oracleRouter } from './routes/oracle';
@@ -117,3 +118,8 @@ export default {
   port: PORT,
   fetch: app.fetch,
 };
+
+serve({
+  fetch: app.fetch,
+  port: PORT,
+});

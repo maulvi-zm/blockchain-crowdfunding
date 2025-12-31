@@ -56,14 +56,6 @@ healthRouter.get('/health', async (c) => {
           cached: parseInt(stats.cached_metadata)
         }
       },
-      database: {
-        type: 'PostgreSQL',
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '5432'),
-        database: process.env.DB_NAME || 'crowdfunding',
-        connected: true,
-        pool: poolStats
-      },
       blockchain: {
         rpcUrl: process.env.RPC_URL || 'http://localhost:8545',
         contractAddress: process.env.CONTRACT_ADDRESS || 'not configured'

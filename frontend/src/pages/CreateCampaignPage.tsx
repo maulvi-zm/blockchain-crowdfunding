@@ -49,41 +49,6 @@ export function CreateCampaignPage() {
 
   const HARDHAT_CHAIN_ID = 31337;
 
-  async function ensureHardhatNetwork() {
-    const provider = new ethers.BrowserProvider(window.ethereum!);
-    const network = await provider.getNetwork();
-
-    if (Number(network.chainId) !== HARDHAT_CHAIN_ID) {
-      try {
-        await window.ethereum!.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0x7A69" }], // 31337 hex
-        });
-      } catch (err: any) {
-        // network belum ada → tambahkan
-        if (err.code === 4902) {
-          await window.ethereum!.request({
-            method: "wallet_addEthereumChain",
-            params: [
-              {
-                chainId: "0x7A69",
-                chainName: "Hardhat Local",
-                rpcUrls: ["http://127.0.0.1:8545"],
-                nativeCurrency: {
-                  name: "ETH",
-                  symbol: "ETH",
-                  decimals: 18,
-                },
-              },
-            ],
-          });
-        } else {
-          throw err;
-        }
-      }
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -93,7 +58,7 @@ export function CreateCampaignPage() {
     }
 
     if (!ethers.isAddress(CONTRACT_ADDRESS)) {
-      alert("Invalid local contract address");
+      alert("Invalid contract address");
       return;
     }
 
@@ -103,45 +68,65 @@ export function CreateCampaignPage() {
     }
 
     setLoading(true);
+
     try {
-      await ensureHardhatNetwork();
       await window.ethereum.request({ method: "eth_requestAccounts" });
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const network = await provider.getNetwork();
+
+      if (Number(network.chainId) !== HARDHAT_CHAIN_ID) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0x7A69" }], // 31337
+          });
+        } catch (err) {
+          alert("Please add & select Hardhat network in MetaMask");
+          return;
+        }
+      }
 
       const imageCid = await uploadFile(imageFile);
       const metadataCid = await uploadJSON({
         name: title,
         description,
         image: `ipfs://${imageCid}`,
-        createdAt: new Date().toISOString(),
+        goal_idr: goalIdr ? Number(goalIdr) : null,
       });
 
       let ethAmount =
-        goalIdr && rate ? (Number(goalIdr) / rate).toString() : goal || "0";
+        goalIdr && rate ? (Number(goalIdr) / rate).toFixed(18) : goal || "0";
 
+      console.log("eth: ", ethAmount);
       const goalWei = ethers.parseEther(ethAmount);
+
       const deadlineTs =
         Math.floor(Date.now() / 1000) + durationDays * 24 * 3600;
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
 
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
       const tx = await contract.createCampaign(
         goalWei,
         deadlineTs,
         metadataCid
       );
+
       await tx.wait();
 
-      alert("Campaign created (LOCAL)");
-      // reset form (minimal)
+      alert("Campaign created");
+
+      // reset minimal
       setTitle("");
       setDescription("");
       setGoal("");
+      setGoalIdr("");
       setImageFile(null);
+      setImagePreview(null);
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Failed");
+      alert(err?.message || "Transaction failed");
     } finally {
       setLoading(false);
     }
@@ -155,6 +140,7 @@ export function CreateCampaignPage() {
 
   useEffect(() => {
     fetchRate();
+    console.log("address: ", CONTRACT_ADDRESS);
   }, []);
 
   return (

@@ -1,3 +1,4 @@
+//Yg Oracle belum aing cek karena masih kurang paham bgt
 import { ethers } from 'ethers';
 import { query, getClient } from '../db/init';
 import { contractABI } from '../config/abi';
@@ -32,24 +33,27 @@ export function startEventListener() {
 
     try {
       const result = await query('SELECT last_processed_block, last_processed_log_index FROM sync_state WHERE id = 1');
-      const syncState = result.rows[0];
+      const syncState = {
+        lastProcessedBlock: Number(result.rows[0].last_processed_block),
+        lastProcessedLogIndex: Number(result.rows[0].last_processed_log_index),
+      };
       
       const currentBlock = await provider.getBlockNumber();
       
-      if (currentBlock <= syncState.last_processed_block) {
+      if (currentBlock <= syncState.lastProcessedBlock) {
         isProcessing = false;
         return;
       }
 
-      const fromBlock = syncState.last_processed_block + 1;
+      const fromBlock = syncState.lastProcessedBlock + 1;
       const toBlock = Math.min(fromBlock + BATCH_SIZE - 1, currentBlock);
 
       console.log(`📦 Processing blocks ${fromBlock} to ${toBlock} (current: ${currentBlock})`);
 
       const filter = {
         address: CONTRACT_ADDRESS,
-        fromBlock,
-        toBlock
+          fromBlock,
+          toBlock
       };
 
       const logs = await provider.getLogs(filter);
