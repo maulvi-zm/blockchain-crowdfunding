@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "../components/ui/Button";
 import { uploadFile, uploadJSON } from "../utils/ipfs";
 import { ethers } from "ethers";
+import { CHAIN_ID, CONTRACT_ADDRESS, CROWDFUNDING_ABI } from "../contract/crowdfunding";
 
-const CONTRACT_ADDRESS = import.meta.env.VITE_CROWDFUNDING_ADDRESS || "";
-const ABI = [
-  "function createCampaign(uint256 _goalWei, uint64 _deadlineTs, string _metadataCID) external returns (uint256)",
-];
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
 export function CreateCampaignPage() {
   const [title, setTitle] = useState("");
@@ -23,7 +21,7 @@ export function CreateCampaignPage() {
   // fetch oracle rate from backend (fallback to CoinGecko)
   async function fetchRate() {
     try {
-      const resp = await fetch("/api/v1/oracle/rate?pair=ETH_IDR");
+      const resp = await fetch(`${API_BASE_URL}/api/v1/oracle/rate?pair=ETH_IDR`);
       if (resp.ok) {
         const data = await resp.json();
         if (data.available && data.rate) {
@@ -46,8 +44,6 @@ export function CreateCampaignPage() {
       console.warn("CoinGecko fallback failed", e);
     }
   }
-
-  const HARDHAT_CHAIN_ID = 31337;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,7 +70,7 @@ export function CreateCampaignPage() {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const network = await provider.getNetwork();
 
-      if (Number(network.chainId) !== HARDHAT_CHAIN_ID) {
+      if (Number(network.chainId) !== CHAIN_ID) {
         try {
           await window.ethereum.request({
             method: "wallet_switchEthereumChain",
@@ -105,7 +101,7 @@ export function CreateCampaignPage() {
 
       const signer = await provider.getSigner();
 
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CROWDFUNDING_ABI, signer);
 
       const tx = await contract.createCampaign(
         goalWei,

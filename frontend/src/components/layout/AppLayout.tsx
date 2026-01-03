@@ -1,12 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Heart, Menu, X } from 'lucide-react'
 import { Link, Outlet } from '@tanstack/react-router'
 
 import { Button } from '../ui/Button'
+import { WalletContext } from '../../contexts/wallet'
 
 export function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [walletConnected, setWalletConnected] = useState(false)
+  const [walletAddress, setWalletAddress] = useState<string | null>(null)
+
+  const formattedAddress = walletAddress
+    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+    : ''
+
+  async function connectWallet() {
+    if (!window.ethereum) {
+      alert('MetaMask not found')
+      return
+    }
+    const accounts = (await window.ethereum.request({ method: 'eth_requestAccounts' })) as string[]
+    setWalletAddress(accounts?.[0] ?? null)
+  }
 
   const NavLink = ({ to, label }: { to: string; label: string }) => (
     <Link
@@ -19,8 +33,25 @@ export function AppLayout() {
     </Link>
   )
 
+  useEffect(() => {
+    if (!window.ethereum) return
+    const handleAccountsChanged = (accounts: string[]) => {
+      setWalletAddress(accounts?.[0] ?? null)
+    }
+    window.ethereum.request({ method: 'eth_accounts' }).then(handleAccountsChanged).catch(() => {})
+    if (window.ethereum.on) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged)
+      return () => {
+        if (window.ethereum.removeListener) {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
+        }
+      }
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900 pb-20">
+    <WalletContext.Provider value={{ walletAddress, setWalletAddress }}>
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900 pb-20">
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 lg:px-6 h-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 cursor-pointer group">
@@ -39,13 +70,13 @@ export function AppLayout() {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
-            {walletConnected ? (
+            {walletAddress ? (
               <div className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-sm font-medium text-slate-700">0x12...4B</span>
+                <span className="text-sm font-medium text-slate-700">{formattedAddress}</span>
               </div>
             ) : (
-              <Button primary onClick={() => setWalletConnected(true)} className="px-6 py-2 text-sm shadow-teal-200">
+              <Button primary onClick={connectWallet} className="px-6 py-2 text-sm shadow-teal-200">
                 Connect to Donate
               </Button>
             )}
@@ -63,15 +94,23 @@ export function AppLayout() {
           <NavLink to="/create" label="Start a Fundraiser" />
           <NavLink to="/activity" label="My Contributions" />
           <div className="h-px bg-slate-100 my-2" />
-          <Button primary className="w-full" onClick={() => setWalletConnected(true)}>
-            Connect to Donate
-          </Button>
+          {walletAddress ? (
+            <div className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm font-medium text-slate-700">{formattedAddress}</span>
+            </div>
+          ) : (
+            <Button primary className="w-full" onClick={connectWallet}>
+              Connect to Donate
+            </Button>
+          )}
         </div>
       )}
 
       <main className="pt-8 lg:pt-12">
         <Outlet />
       </main>
-    </div>
+      </div>
+    </WalletContext.Provider>
   )
 }

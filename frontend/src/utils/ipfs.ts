@@ -2,6 +2,7 @@ const PINATA_API_KEY = import.meta.env.VITE_PINATA_API_KEY
 const PINATA_API_SECRET = import.meta.env.VITE_PINATA_API_SECRET
 
 const PINATA_BASE_URL = 'https://api.pinata.cloud'
+const PINATA_GATEWAY = import.meta.env.VITE_PINATA_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
 
 /**
  * Upload FILE (image)
@@ -49,4 +50,21 @@ export async function uploadJSON(json: object): Promise<string> {
 
   const data = await res.json()
   return data.IpfsHash
+}
+
+export function ipfsToHttp(uriOrCid: string): string {
+  if (!uriOrCid) return ''
+  if (uriOrCid.startsWith('ipfs://')) return `${PINATA_GATEWAY}${uriOrCid.slice(7)}`
+  if (uriOrCid.startsWith('http://') || uriOrCid.startsWith('https://')) return uriOrCid
+  return `${PINATA_GATEWAY}${uriOrCid}`
+}
+
+export async function fetchIpfsJson<T = any>(cid: string): Promise<T> {
+  const url = ipfsToHttp(cid)
+  const res = await fetch(url)
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`IPFS fetch failed: ${err}`)
+  }
+  return res.json()
 }
