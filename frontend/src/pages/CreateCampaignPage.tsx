@@ -5,13 +5,15 @@ import { ethers } from "ethers";
 import { CHAIN_ID, CONTRACT_ADDRESS, CROWDFUNDING_ABI } from "../contract/crowdfunding";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const TEST_DEADLINE_SECONDS = Number(import.meta.env.VITE_TEST_DEADLINE_SECONDS || "60");
+const APP_ENV = import.meta.env.VITE_APP_ENV || "";
 
 export function CreateCampaignPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [goal, setGoal] = useState("");
   const [goalIdr, setGoalIdr] = useState("");
-  const [durationDays, setDurationDays] = useState(30);
+  const [deadlineDate, setDeadlineDate] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [rate, setRate] = useState<number | null>(null);
@@ -58,7 +60,7 @@ export function CreateCampaignPage() {
       return;
     }
 
-    if (!title || !description || (!goal && !goalIdr) || !imageFile) {
+    if (!title || !description || (!goal && !goalIdr) || !imageFile || !deadlineDate) {
       alert("Please fill all fields");
       return;
     }
@@ -96,8 +98,18 @@ export function CreateCampaignPage() {
       console.log("eth: ", ethAmount);
       const goalWei = ethers.parseEther(ethAmount);
 
-      const deadlineTs =
-        Math.floor(Date.now() / 1000) + durationDays * 24 * 3600;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      let deadlineTs: number;
+      if (deadlineDate < todayStr && APP_ENV === "local") {
+        deadlineTs = Math.floor(Date.now() / 1000) + TEST_DEADLINE_SECONDS;
+      } else {
+        const deadline = new Date(`${deadlineDate}T23:59:59`);
+        deadlineTs = Math.floor(deadline.getTime() / 1000);
+      }
+      if (!deadlineTs || deadlineTs <= Math.floor(Date.now() / 1000)) {
+        alert("Please choose a future deadline date");
+        return;
+      }
 
       const signer = await provider.getSigner();
 
@@ -237,18 +249,15 @@ export function CreateCampaignPage() {
               {/* RIGHT COLUMN */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Campaign Duration
+                  Campaign Deadline
                 </label>
 
-                <select
-                  value={durationDays}
-                  onChange={(e) => setDurationDays(Number(e.target.value))}
+                <input
+                  type="date"
+                  value={deadlineDate}
+                  onChange={(e) => setDeadlineDate(e.target.value)}
                   className="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                >
-                  <option value={30}>30 Days</option>
-                  <option value={60}>60 Days</option>
-                  <option value={90}>90 Days</option>
-                </select>
+                />
               </div>
             </div>
           </div>

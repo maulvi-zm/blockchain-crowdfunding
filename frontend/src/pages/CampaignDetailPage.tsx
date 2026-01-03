@@ -66,6 +66,7 @@ export function CampaignDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [donationAmount, setDonationAmount] = useState('')
   const [donating, setDonating] = useState(false)
+  const [actionLoading, setActionLoading] = useState<'finalize' | 'withdraw' | 'refund' | null>(null)
   const [activeTab, setActiveTab] = useState<'story' | 'donors'>('story')
   const [userContribution, setUserContribution] = useState<UserContribution>({
     amountWei: '0',
@@ -228,6 +229,135 @@ export function CampaignDetailPage() {
     }
   }
 
+  async function handleFinalize() {
+    if (!window.ethereum) {
+      alert('MetaMask not found')
+      return
+    }
+    if (!ethers.isAddress(CONTRACT_ADDRESS)) {
+      alert('Invalid contract address')
+      return
+    }
+
+    setActionLoading('finalize')
+    try {
+      const accounts = (await window.ethereum.request({ method: 'eth_requestAccounts' })) as string[]
+      setWalletAddress(accounts?.[0] ?? null)
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const network = await provider.getNetwork()
+
+      if (Number(network.chainId) !== CHAIN_ID) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x7A69' }],
+          })
+        } catch (err) {
+          alert('Please add & select Hardhat network in MetaMask')
+          return
+        }
+      }
+
+      const signer = await provider.getSigner()
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CROWDFUNDING_ABI, signer)
+      const tx = await contract.finalizeCampaign(Number(campaignId))
+      await tx.wait()
+      await loadCampaign(false)
+      alert('Campaign finalized')
+    } catch (err: any) {
+      console.error(err)
+      alert(err?.message || 'Transaction failed')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  async function handleWithdraw() {
+    if (!window.ethereum) {
+      alert('MetaMask not found')
+      return
+    }
+    if (!ethers.isAddress(CONTRACT_ADDRESS)) {
+      alert('Invalid contract address')
+      return
+    }
+
+    setActionLoading('withdraw')
+    try {
+      const accounts = (await window.ethereum.request({ method: 'eth_requestAccounts' })) as string[]
+      setWalletAddress(accounts?.[0] ?? null)
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const network = await provider.getNetwork()
+
+      if (Number(network.chainId) !== CHAIN_ID) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x7A69' }],
+          })
+        } catch (err) {
+          alert('Please add & select Hardhat network in MetaMask')
+          return
+        }
+      }
+
+      const signer = await provider.getSigner()
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CROWDFUNDING_ABI, signer)
+      const tx = await contract.withdrawFunds(Number(campaignId))
+      await tx.wait()
+      await loadCampaign(false)
+      alert('Funds withdrawn')
+    } catch (err: any) {
+      console.error(err)
+      alert(err?.message || 'Transaction failed')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  async function handleRefund() {
+    if (!window.ethereum) {
+      alert('MetaMask not found')
+      return
+    }
+    if (!ethers.isAddress(CONTRACT_ADDRESS)) {
+      alert('Invalid contract address')
+      return
+    }
+
+    setActionLoading('refund')
+    try {
+      const accounts = (await window.ethereum.request({ method: 'eth_requestAccounts' })) as string[]
+      setWalletAddress(accounts?.[0] ?? null)
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const network = await provider.getNetwork()
+
+      if (Number(network.chainId) !== CHAIN_ID) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x7A69' }],
+          })
+        } catch (err) {
+          alert('Please add & select Hardhat network in MetaMask')
+          return
+        }
+      }
+
+      const signer = await provider.getSigner()
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CROWDFUNDING_ABI, signer)
+      const tx = await contract.refund(Number(campaignId))
+      await tx.wait()
+      await loadCampaign(false)
+      alert('Refund processed')
+    } catch (err: any) {
+      console.error(err)
+      alert(err?.message || 'Transaction failed')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   if (loading) {
     return <div className="text-center text-slate-500 py-12">Loading campaign...</div>
   }
@@ -241,12 +371,21 @@ export function CampaignDetailPage() {
   const percent = goalEth > 0 ? Math.min(100, Math.round((raisedEth / goalEth) * 100)) : 0
   const now = Math.floor(Date.now() / 1000)
   const daysLeft = Math.max(0, Math.ceil((Number(campaign.deadlineTs) - now) / 86400))
+  const deadlineLabel = new Date(Number(campaign.deadlineTs) * 1000).toLocaleString()
   const imageUrl = campaign.metadata?.image || 'https://picsum.photos/seed/detail99/1600/900'
   const title = campaign.metadata?.title || `Campaign #${campaignId}`
   const description = campaign.metadata?.description || 'No description provided.'
   const userContributionEth = Number(ethers.formatEther(userContribution.amountWei || '0'))
 
   const walletConnected = Boolean(walletAddress)
+  const deadlinePassed = Number(campaign.deadlineTs) <= now
+  const isCreator =
+    walletConnected && campaign.creator.toLowerCase() === (walletAddress || '').toLowerCase()
+  const canFinalize = campaign.status === 'ACTIVE' && deadlinePassed
+  const canWithdraw = campaign.status === 'SUCCESS' && isCreator && !campaign.withdrawn
+  const hasContribution = BigInt(userContribution.amountWei || '0') > 0n
+  const canRefund = campaign.status === 'FAILED' && hasContribution
+  const canDonate = walletConnected && campaign.status === 'ACTIVE' && !deadlinePassed
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -357,6 +496,9 @@ export function CampaignDetailPage() {
                 <span>— Donations</span>
                 <span className="text-teal-700 font-semibold">{daysLeft} Days Left</span>
               </div>
+              <div className="mt-2 text-xs text-slate-400">
+                Donation ends: {deadlineLabel}
+              </div>
             </div>
 
             <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
@@ -372,24 +514,30 @@ export function CampaignDetailPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Enter donation amount</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    placeholder="0.1"
-                    value={donationAmount}
-                    onChange={(e) => setDonationAmount(e.target.value)}
-                    className="w-full pl-4 pr-16 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-lg font-bold text-slate-800"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">ETH</span>
+              {walletConnected && canDonate && (
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Enter donation amount</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      placeholder="0.1"
+                      value={donationAmount}
+                      onChange={(e) => setDonationAmount(e.target.value)}
+                      className="w-full pl-4 pr-16 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-lg font-bold text-slate-800"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">ETH</span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {walletConnected ? (
-                <Button primary className="w-full text-lg shadow-lg shadow-teal-700/20" onClick={handleDonate} disabled={donating}>
-                  Donate Now
-                </Button>
+                canDonate ? (
+                  <Button primary className="w-full text-lg shadow-lg shadow-teal-700/20" onClick={handleDonate} disabled={donating}>
+                    Donate Now
+                  </Button>
+                ) : (
+                  <div className="text-center text-sm text-slate-500">Donations are closed for this campaign.</div>
+                )
               ) : (
                 <div className="text-center text-sm text-slate-500">Connect your wallet to donate.</div>
               )}
@@ -397,6 +545,37 @@ export function CampaignDetailPage() {
               <p className="text-xs text-center text-slate-400 leading-relaxed">
                 Your donation is refundable if the campaign does not reach its minimum goal by the deadline.
               </p>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <div className="text-sm font-semibold text-slate-600 mb-3">Campaign actions</div>
+              {walletConnected ? (
+                <div className="flex flex-col gap-3">
+                  {canFinalize && (
+                    <Button outline onClick={handleFinalize} disabled={actionLoading === 'finalize'}>
+                      Finalize Campaign
+                    </Button>
+                  )}
+                  {canWithdraw && (
+                    <Button outline onClick={handleWithdraw} disabled={actionLoading === 'withdraw'}>
+                      Withdraw Funds
+                    </Button>
+                  )}
+                  {canRefund && (
+                    <Button outline onClick={handleRefund} disabled={actionLoading === 'refund'}>
+                      Request Refund
+                    </Button>
+                  )}
+                  {campaign.status === 'SUCCESS' && campaign.withdrawn && (
+                    <div className="text-xs text-slate-400 text-center">Funds already withdrawn</div>
+                  )}
+                  {!canFinalize && !canWithdraw && !canRefund && !(campaign.status === 'SUCCESS' && campaign.withdrawn) && (
+                    <div className="text-xs text-slate-400 text-center">No actions available.</div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center text-sm text-slate-500">Connect your wallet to manage this campaign.</div>
+              )}
             </div>
 
           </div>
