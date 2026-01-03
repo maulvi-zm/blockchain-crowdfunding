@@ -172,6 +172,119 @@ campaignsRouter.get("/", async (c) => {
   }
 });
 
+// BE-API-05: Contributions by contributor address (paginated)
+campaignsRouter.get("/contributions/by/:address", async (c) => {
+  try {
+    const address = c.req.param("address").toLowerCase();
+    const page = Math.max(1, parseInt(c.req.query("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(c.req.query("limit") || "20")));
+    const offset = (page - 1) * limit;
+
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      return c.json({ error: "Invalid address format" }, 400);
+    }
+
+    const countResult = await query(
+      `
+      SELECT COUNT(*) as total
+      FROM contributions
+      WHERE contributor_address = $1
+    `,
+      [address]
+    );
+    const total = parseInt(countResult.rows[0].total);
+
+    const result = await query(
+      `
+      SELECT
+        c.campaign_id,
+        c.creator_address,
+        c.goal_wei,
+        c.deadline_ts,
+        c.total_raised_wei,
+        c.status,
+        c.withdrawn,
+        c.metadata_cid,
+        c.tx_create_hash,
+        c.block_created,
+        c.updated_at,
+        contrib.amount_wei,
+        contrib.last_tx_hash,
+        contrib.created_at as contribution_created_at,
+        contrib.updated_at as contribution_updated_at
+      FROM contributions contrib
+      JOIN campaigns c ON c.campaign_id = contrib.campaign_id
+      WHERE contrib.contributor_address = $1
+      ORDER BY contrib.updated_at DESC
+      LIMIT $2 OFFSET $3
+    `,
+      [address, limit, offset]
+    );
+
+    const items = await Promise.all(
+      result.rows.map(async (row) => {
+        const metadata = await getCachedMetadata(row.metadata_cid);
+
+        return {
+          campaignId: row.campaign_id,
+          creator: row.creator_address,
+          goalWei: row.goal_wei,
+          deadlineTs: parseInt(row.deadline_ts),
+          totalRaisedWei: row.total_raised_wei,
+          status: row.status,
+          withdrawn: row.withdrawn,
+          metadata: metadata
+            ? {
+                cid: row.metadata_cid,
+                title: metadata.name || "Untitled Campaign",
+                description: metadata.description
+                  ? metadata.description.length > 200
+                    ? metadata.description.substring(0, 200) + "..."
+                    : metadata.description
+                  : "",
+                image: metadata.image ? normalizeIpfsUrl(metadata.image) : null,
+              }
+            : {
+                cid: row.metadata_cid,
+                title: "Loading...",
+                description: "",
+                image: null,
+              },
+          created: {
+            txHash: row.tx_create_hash,
+            block: parseInt(row.block_created),
+          },
+          updatedAt: row.updated_at,
+          contribution: {
+            amountWei: row.amount_wei,
+            lastTxHash: row.last_tx_hash,
+            createdAt: row.contribution_created_at,
+            updatedAt: row.contribution_updated_at,
+          },
+        };
+      })
+    );
+
+    return c.json({
+      address,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      items,
+    });
+  } catch (error: any) {
+    console.error("Error in GET /campaigns/contributions/by/:address:", error);
+    return c.json(
+      {
+        error: "Failed to fetch contributions",
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
 // BE-API-02: Campaign detail
 campaignsRouter.get("/:campaignId", async (c) => {
   try {
