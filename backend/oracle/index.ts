@@ -7,9 +7,10 @@ const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS!;
 const ORACLE_PRIVATE_KEY = process.env.ORACLE_PRIVATE_KEY!;
 const CHAIN_ID = parseInt(process.env.CHAIN_ID || '31337');
+const ORACLE_POLL_INTERVAL = parseInt(process.env.ORACLE_POLL_INTERVAL || '10000');
 
 // Retry configuration
-const MAX_RETRY = 3;
+const MAX_RETRY = parseInt(process.env.MAX_RETRY || '3');
 const BACKOFF_MS = [500, 1500, 3000];
 
 
@@ -34,6 +35,7 @@ class OracleService {
 
   constructor() {
     this.provider = new ethers.JsonRpcProvider(RPC_URL);
+    this.provider.pollingInterval = ORACLE_POLL_INTERVAL;
     this.wallet = new ethers.Wallet(ORACLE_PRIVATE_KEY, this.provider);
     this.contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, this.wallet);
     this.processedRequests = new Set();

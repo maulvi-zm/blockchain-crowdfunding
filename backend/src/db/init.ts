@@ -59,7 +59,7 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS campaigns (
         campaign_id BIGINT PRIMARY KEY,
         creator_address VARCHAR(42) NOT NULL,
-        goal_wei NUMERIC NOT NULL,
+        goal_idr NUMERIC NOT NULL,
         deadline_ts BIGINT NOT NULL,
         total_raised_wei NUMERIC NOT NULL DEFAULT 0,
         status VARCHAR(10) NOT NULL CHECK(status IN ('ACTIVE', 'SUCCESS', 'FAILED')) DEFAULT 'ACTIVE',
@@ -105,32 +105,6 @@ export async function initDatabase() {
       
       CREATE INDEX IF NOT EXISTS idx_contributions_amount 
       ON contributions(amount_wei DESC);
-    `);
-
-    // Create oracle_updates table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS oracle_updates (
-        id BIGSERIAL PRIMARY KEY,
-        campaign_id BIGINT NOT NULL,
-        request_id VARCHAR(66) NOT NULL,
-        data_key VARCHAR(100) NOT NULL,
-        value BIGINT NOT NULL,
-        updated_at_chain BIGINT NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        UNIQUE(campaign_id, request_id),
-        FOREIGN KEY (campaign_id) REFERENCES campaigns(campaign_id) ON DELETE CASCADE
-      )
-    `);
-
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_oracle_campaign 
-      ON oracle_updates(campaign_id);
-      
-      CREATE INDEX IF NOT EXISTS idx_oracle_datakey 
-      ON oracle_updates(data_key);
-      
-      CREATE INDEX IF NOT EXISTS idx_oracle_created 
-      ON oracle_updates(created_at DESC);
     `);
 
     // Create sync_state table

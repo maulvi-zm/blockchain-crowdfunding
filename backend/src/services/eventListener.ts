@@ -170,22 +170,22 @@ async function handleEvent(event: ParsedEvent, client: any) {
 }
 
 async function handleCampaignCreated(event: ParsedEvent, client: any) {
-  const [campaignId, creator, goalWei, deadlineTs, metadataCID] = event.args;
+  const [campaignId, creator, goalIdr, deadlineTs, metadataCID] = event.args;
   
   await client.query(`
     INSERT INTO campaigns 
-    (campaign_id, creator_address, goal_wei, deadline_ts, total_raised_wei, 
+    (campaign_id, creator_address, goal_idr, deadline_ts, total_raised_wei, 
      status, withdrawn, metadata_cid, tx_create_hash, block_created)
     VALUES ($1, $2, $3, $4, 0, 'ACTIVE', FALSE, $5, $6, $7)
     ON CONFLICT (campaign_id) DO UPDATE SET
       creator_address = EXCLUDED.creator_address,
-      goal_wei = EXCLUDED.goal_wei,
+      goal_idr = EXCLUDED.goal_idr,
       deadline_ts = EXCLUDED.deadline_ts,
       metadata_cid = EXCLUDED.metadata_cid
   `, [
     campaignId.toString(),
     creator.toLowerCase(),
-    goalWei.toString(),
+    goalIdr.toString(),
     deadlineTs.toString(),
     metadataCID,
     event.transactionHash,
@@ -281,25 +281,10 @@ async function handleOracleDataRequested(event: ParsedEvent, client: any) {
 }
 
 async function handleOracleDataUpdated(event: ParsedEvent, client: any) {
-  const [campaignId, requestId, dataKey, value, updatedAt] = event.args;
-
-  await client.query(`
-    INSERT INTO oracle_updates 
-    (campaign_id, request_id, data_key, value, updated_at_chain)
-    VALUES ($1, $2, $3, $4, $5)
-    ON CONFLICT (campaign_id, request_id) DO UPDATE SET
-      data_key = EXCLUDED.data_key,
-      value = EXCLUDED.value,
-      updated_at_chain = EXCLUDED.updated_at_chain
-  `, [
-    campaignId.toString(),
-    requestId,
-    dataKey,
-    value.toString(),
-    updatedAt.toString()
-  ]);
+  const [campaignId, requestId, dataKey, value] = event.args;
 
   console.log(`     Oracle data updated for campaign ${campaignId}`);
   console.log(`       Data Key: ${dataKey}`);
+  console.log(`       Request ID: ${requestId}`);
   console.log(`       Value: ${value.toString()}`);
 }

@@ -70,7 +70,7 @@ campaignsRouter.get("/", async (c) => {
       deadline: "c.deadline_ts",
       raised: "c.total_raised_wei",
       created: "c.block_created",
-      goal: "c.goal_wei",
+      goal: "c.goal_idr",
       updated: "c.updated_at",
     };
 
@@ -97,7 +97,7 @@ campaignsRouter.get("/", async (c) => {
       SELECT 
         c.campaign_id,
         c.creator_address,
-        c.goal_wei,
+        c.goal_idr,
         c.deadline_ts,
         c.total_raised_wei,
         c.status,
@@ -122,7 +122,7 @@ campaignsRouter.get("/", async (c) => {
         return {
           campaignId: campaign.campaign_id,
           creator: campaign.creator_address,
-          goalWei: campaign.goal_wei,
+          goalIdr: campaign.goal_idr,
           deadlineTs: parseInt(campaign.deadline_ts),
           totalRaisedWei: campaign.total_raised_wei,
           status: campaign.status,
@@ -199,7 +199,7 @@ campaignsRouter.get("/contributions/by/:address", async (c) => {
       SELECT
         c.campaign_id,
         c.creator_address,
-        c.goal_wei,
+        c.goal_idr,
         c.deadline_ts,
         c.total_raised_wei,
         c.status,
@@ -228,7 +228,7 @@ campaignsRouter.get("/contributions/by/:address", async (c) => {
         return {
           campaignId: row.campaign_id,
           creator: row.creator_address,
-          goalWei: row.goal_wei,
+          goalIdr: row.goal_idr,
           deadlineTs: parseInt(row.deadline_ts),
           totalRaisedWei: row.total_raised_wei,
           status: row.status,
@@ -299,7 +299,7 @@ campaignsRouter.get("/:campaignId", async (c) => {
       SELECT 
         campaign_id,
         creator_address,
-        goal_wei,
+        goal_idr,
         deadline_ts,
         total_raised_wei,
         status,
@@ -345,7 +345,7 @@ campaignsRouter.get("/:campaignId", async (c) => {
     return c.json({
       campaignId: campaign.campaign_id,
       creator: campaign.creator_address,
-      goalWei: campaign.goal_wei,
+      goalIdr: campaign.goal_idr,
       deadlineTs: parseInt(campaign.deadline_ts),
       totalRaisedWei: campaign.total_raised_wei,
       status: campaign.status,

@@ -1,6 +1,7 @@
 // src/routes/oracle.ts
 import { Hono } from 'hono'
-import { query } from '../db/init'
+import { ethers } from 'ethers'
+import { contractABI } from '../config/abi'
 
 export const oracleRouter = new Hono()
 
@@ -14,24 +15,23 @@ oracleRouter.get('/rate', async (c) => {
       return c.json({ error: 'Unsupported pair' }, 400)
     }
 
-    const res = await query(`
-      SELECT value, updated_at_chain, created_at
-      FROM oracle_updates
-      WHERE data_key = $1
-      ORDER BY created_at DESC
-      LIMIT 1
-    `, [pair])
+    const RPC_URL = process.env.RPC_URL || 'http://localhost:8545'
+    const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || ''
+    if (!ethers.isAddress(CONTRACT_ADDRESS)) {
+      return c.json({ error: 'Invalid contract address' }, 500)
+    }
 
-    if (res.rows.length === 0) {
+    const provider = new ethers.JsonRpcProvider(RPC_URL)
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, provider)
+    const rateScaled: bigint = await contract.latestEthIdrRateScaled()
+
+    if (!rateScaled || rateScaled === 0n) {
       return c.json({ pair, available: false })
     }
 
-    const row = res.rows[0]
-    // value stored by oracle is scaled by 100 (see oracle/index.ts)
-    const raw = Number(row.value)
-    const rate = raw / 100 // IDR per ETH as float
+    const rate = Number(rateScaled) / 100
 
-    return c.json({ pair, available: true, rate, updatedAt: row.updated_at_chain, recordedAt: row.created_at })
+    return c.json({ pair, available: true, rate })
   } catch (error: any) {
     console.error('Error in GET /oracle/rate:', error)
     return c.json({ error: 'Failed to fetch rate', message: error.message }, 500)
