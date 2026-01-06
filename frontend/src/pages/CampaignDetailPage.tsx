@@ -290,36 +290,79 @@ export function CampaignDetailPage() {
 
       const signer = await provider.getSigner()
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CROWDFUNDING_ABI, signer)
-      const oracleTx = await contract.requestOracleData(Number(campaignId), 'ETH_IDR', '')
-      const oracleReceipt = await oracleTx.wait()
-
       let requestId: string | null = null
-      for (const log of oracleReceipt.logs) {
-        try {
-          const parsed = contract.interface.parseLog(log)
-          if (parsed?.name === 'OracleDataRequested') {
-            const [reqCampaignId, reqId] = parsed.args
-            if (Number(reqCampaignId) === Number(campaignId)) {
-              requestId = reqId
-              break
-            }
-          }
-        } catch {}
-      }
+      let resolved = false
+      const waitForOracle = new Promise<void>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          if (!resolved) reject(new Error('Oracle response timeout'))
+        }, 30000)
 
-      if (!requestId) {
-        throw new Error('Oracle request ID not found')
-      }
-
-      await new Promise<void>((resolve) => {
-        const filter = contract.filters.OracleDataUpdated(BigInt(campaignId), requestId)
-        contract.once(filter, (_campaignId: bigint, _requestId: string, dataKey: string, value: bigint) => {
-          if (dataKey === 'ETH_IDR') {
-            setRateScaled(BigInt(value))
-          }
+        const onUpdate = (_campaignId: bigint, _requestId: string, dataKey: string, value: bigint) => {
+          if (requestId && _requestId !== requestId) return
+          if (dataKey !== 'ETH_IDR') return
+          resolved = true
+          clearTimeout(timeoutId)
+          setRateScaled(BigInt(value))
           resolve()
+        }
+
+        contract.on('OracleDataUpdated', onUpdate)
+
+        const poll = async () => {
+          if (resolved || !requestId) return
+          try {
+            const rate: bigint = await contract.campaignEthIdrRateScaled(Number(campaignId))
+            if (rate > 0n) {
+              resolved = true
+              clearTimeout(timeoutId)
+              contract.off('OracleDataUpdated', onUpdate)
+              setRateScaled(rate)
+              resolve()
+              return
+            }
+          } catch {}
+          setTimeout(poll, 2000)
+        }
+
+        const startPolling = () => {
+          if (!resolved) poll()
+        }
+
+        const requestOracle = async () => {
+          const oracleTx = await contract.requestOracleData(Number(campaignId), 'ETH_IDR', '')
+          const oracleReceipt = await oracleTx.wait()
+
+          for (const log of oracleReceipt.logs) {
+            try {
+              const parsed = contract.interface.parseLog(log)
+              if (parsed?.name === 'OracleDataRequested') {
+                const [reqCampaignId, reqId] = parsed.args
+                if (Number(reqCampaignId) === Number(campaignId)) {
+                  requestId = reqId
+                  break
+                }
+              }
+            } catch {}
+          }
+
+          if (!requestId) {
+            contract.off('OracleDataUpdated', onUpdate)
+            clearTimeout(timeoutId)
+            reject(new Error('Oracle request ID not found'))
+            return
+          }
+
+          startPolling()
+        }
+
+        requestOracle().catch((err) => {
+          contract.off('OracleDataUpdated', onUpdate)
+          clearTimeout(timeoutId)
+          reject(err)
         })
       })
+
+      await waitForOracle
 
       const tx = await contract.finalizeCampaign(Number(campaignId))
       await tx.wait()

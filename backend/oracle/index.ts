@@ -32,6 +32,7 @@ class OracleService {
   private wallet: ethers.Wallet;
   private contract: ethers.Contract;
   private processedRequests: Set<string>;
+  private queue: Promise<void>;
 
   constructor() {
     this.provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -39,6 +40,7 @@ class OracleService {
     this.wallet = new ethers.Wallet(ORACLE_PRIVATE_KEY, this.provider);
     this.contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, this.wallet);
     this.processedRequests = new Set();
+    this.queue = Promise.resolve();
     
     console.log('Oracle Service initialized');
     console.log('Oracle Address:', this.wallet.address);
@@ -114,6 +116,11 @@ class OracleService {
   }
 
   private async handleRequest(request: OracleRequest) {
+    this.queue = this.queue.then(() => this.processRequest(request));
+    await this.queue;
+  }
+
+  private async processRequest(request: OracleRequest) {
     const { campaignId, requestId, dataKey, param } = request;
 
     // Check if already processed

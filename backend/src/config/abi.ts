@@ -13,6 +13,8 @@ export const contractABI = [
   "function getContribution(uint256 campaignId, address contributor) external view returns (uint256 amountWei)",
   "function campaignCount() external view returns (uint256)",
   "function oracleAddress() external view returns (address)",
+  "function oracleCallback(uint256 _campaignId, bytes32 _requestId, string _dataKey, uint256 _value, uint64 _updatedAt) external",
+  "function requestOracleData(uint256 _campaignId, string _dataKey, string _param) external returns (bytes32)",
   "function latestEthIdrRateScaled() external view returns (uint256)",
   "function campaignEthIdrRateScaled(uint256) external view returns (uint256)"
 ];
