@@ -234,43 +234,48 @@ export function CampaignDetailPage() {
       alert('MetaMask not found')
       return
     }
-    if (!ethers.isAddress(CONTRACT_ADDRESS)) {
-      alert('Invalid contract address')
-      return
-    }
 
     setActionLoading('finalize')
+
     try {
       const accounts = (await window.ethereum.request({ method: 'eth_requestAccounts' })) as string[]
       setWalletAddress(accounts?.[0] ?? null)
+
       const provider = new ethers.BrowserProvider(window.ethereum)
       const network = await provider.getNetwork()
 
       if (Number(network.chainId) !== CHAIN_ID) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x7A69' }],
-          })
-        } catch (err) {
-          alert('Please add & select Hardhat network in MetaMask')
-          return
-        }
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x7A69' }],
+        })
       }
 
       const signer = await provider.getSigner()
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CROWDFUNDING_ABI, signer)
-      const tx = await contract.finalizeCampaign(Number(campaignId))
-      await tx.wait()
+
+      console.log('Requesting oracle data...')
+      const requestTx = await contract.requestOracleData(
+        Number(campaignId),
+        'ETH_IDR',
+        ''
+      )
+      await requestTx.wait()
+
+      console.log('Finalizing campaign...')
+      const finalizeTx = await contract.finalizeCampaign(Number(campaignId))
+      await finalizeTx.wait()
+
       await loadCampaign(false)
-      alert('Campaign finalized')
+      alert('Campaign finalized successfully')
     } catch (err: any) {
       console.error(err)
-      alert(err?.message || 'Transaction failed')
+      alert(err?.message || 'Finalize failed')
     } finally {
       setActionLoading(null)
     }
   }
+
 
   async function handleWithdraw() {
     if (!window.ethereum) {

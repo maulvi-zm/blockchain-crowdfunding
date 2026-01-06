@@ -1,46 +1,61 @@
 const hre = require("hardhat");
 
 async function main() {
-  const [owner, creator, backer] = await hre.ethers.getSigners();
-  const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Alamat hasil deploy
+  const [admin, creator, backer, oracle] = await hre.ethers.getSigners();
 
-  // Ambil instance contract yang sudah terdeploy
+  const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
   const Crowdfunding = await hre.ethers.getContractFactory("Crowdfunding");
-  const contract = await Crowdfunding.attach(contractAddress);
+  const contract = Crowdfunding.attach(contractAddress);
 
-  console.log("--- Mencoba Create Campaign ---");
-  const goal = hre.ethers.utils.parseEther("0.02"); // 5 ETH
-  const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 jam ke depan
+  console.log("=== CREATE CAMPAIGN ===");
+  const goalIDR = hre.ethers.BigNumber.from("30000000"); // 30 juta IDR
+  const deadline = Math.floor(Date.now() / 1000) + 60; // 1 menit
   const cid = "ipfs://my-metadata-cid";
 
-  // Memanggil fungsi createCampaign
-  // const tx1 = await contract.connect(creator).createCampaign(goal, deadline, cid);
-  // await tx1.wait(); // Tunggu transaksi masuk blok
-  // console.log("Campaign berhasil dibuat!");
+  const tx1 = await contract.connect(creator).createCampaign(
+    goalIDR,
+    deadline,
+    cid
+  );
+  await tx1.wait();
+  console.log("✅ Campaign created");
 
-  // console.log("--- Mencoba Kontribusi ---");
-  // // Memanggil fungsi contribute sambil mengirimkan uang (value)
-  // const tx2 = await contract.connect(backer).contribute(1, { 
-  //   value: hre.ethers.utils.parseEther("0.02") 
+  // console.log("=== CONTRIBUTE ===");
+  // const tx2 = await contract.connect(backer).contribute(1, {
+  //   value: hre.ethers.utils.parseEther("0.02"),
   // });
   // await tx2.wait();
-  // console.log("Berhasil kontribusi 0.02 ETH!");
+  // console.log("✅ Contribution sent");
 
-  console.log("\n--- Mencoba Finalize Campaign ---");
+  // console.log("=== ORACLE CALLBACK ===");
+  // const rate = hre.ethers.BigNumber.from("25000000000000000"); 
+  // // contoh: 1 ETH = 25 juta IDR (scaled 1e18)
 
-  const tx3 = await contract
-    .connect(owner) // siapa pun boleh finalize
-    .finalizeCampaign(1);
+  // const now = Math.floor(Date.now() / 1000);
 
-  await tx3.wait();
-  console.log("🏁 Campaign berhasil difinalize");
+  // await contract.connect(admin).setOracle(oracle.address);
 
-  // // Memanggil fungsi getter (read-only)
+  // const tx3 = await contract.connect(oracle).oracleCallback(
+  //   1,
+  //   hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes("req1")),
+  //   "ETH_IDR",
+  //   rate,
+  //   now
+  // );
+  // await tx3.wait();
+  // console.log("✅ Oracle data submitted");
+
+  // console.log("=== TIME TRAVEL ===");
+  // await hre.network.provider.send("evm_increaseTime", [70]);
+  // await hre.network.provider.send("evm_mine");
+
+  // console.log("=== FINALIZE ===");
+  // const tx4 = await contract.finalizeCampaign(1);
+  // await tx4.wait();
+  // console.log("🏁 Campaign finalized");
+
   // const campaign = await contract.campaigns(1);
-  // console.log("Total Dana Terkumpul:", hre.ethers.utils.formatEther(campaign.totalRaisedWei), "ETH");
+  // console.log("Status:", campaign.status.toString());
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main().catch(console.error);

@@ -1,14 +1,13 @@
-// oracle/index.ts
 import { EventLog, Log, ethers } from 'ethers';
-import { contractABI } from '../src/config/abi';
-import { fetchExchangeRate } from './dataProviders';
+import { contractABI } from './abi/index.js';
+import { fetchExchangeRate } from './service/dataProviders.js';
+import 'dotenv/config';
+
 
 const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS!;
 const ORACLE_PRIVATE_KEY = process.env.ORACLE_PRIVATE_KEY!;
-const CHAIN_ID = parseInt(process.env.CHAIN_ID || '31337');
 
-// Retry configuration
 const MAX_RETRY = 3;
 const BACKOFF_MS = [500, 1500, 3000];
 
@@ -46,7 +45,6 @@ class OracleService {
   async start() {
     console.log('Starting Oracle Service...');
     
-    // Listen for OracleDataRequested events
     this.contract.on('OracleDataRequested', async (
       campaignId: bigint,
       requestId: string,
@@ -66,7 +64,6 @@ class OracleService {
       await this.handleRequest(request);
     });
 
-    // Also check for past events on startup
     await this.processPastEvents();
 
     console.log('Oracle Service is now listening for requests...');
@@ -77,7 +74,7 @@ class OracleService {
   private async processPastEvents() {
     try {
       const currentBlock = await this.provider.getBlockNumber();
-      const fromBlock = Math.max(0, currentBlock - 1000); // Last 1000 blocks
+      const fromBlock = Math.max(0, currentBlock - 1000); 
 
       console.log(`Checking past events from block ${fromBlock} to ${currentBlock}`);
 
@@ -114,7 +111,6 @@ class OracleService {
   private async handleRequest(request: OracleRequest) {
     const { campaignId, requestId, dataKey, param } = request;
 
-    // Check if already processed
     if (this.processedRequests.has(requestId)) {
       console.log(`Request ${requestId} already processed, skipping`);
       return;
@@ -127,7 +123,6 @@ class OracleService {
     console.log(`  Param: ${param}`);
 
     try {
-      // Fetch data based on dataKey
       let value: bigint;
       let updatedAt: bigint;
 
@@ -138,21 +133,13 @@ class OracleService {
           updatedAt = BigInt(rateData.timestamp);
           break;
 
-        case 'CAMPAIGN_VERIFIED':
-          // Placeholder for verification logic
-          value = BigInt(1); // 1 = verified, 0 = not verified
-          updatedAt = BigInt(Math.floor(Date.now() / 1000));
-          break;
-
         default:
           console.error(`Unknown data key: ${dataKey}`);
           return;
       }
 
-      // Submit callback to contract
       await this.submitCallback(campaignId, requestId, dataKey, value, updatedAt);
       
-      // Mark as processed
       this.processedRequests.add(requestId);
       
       console.log(`✓ Request ${requestId} processed successfully`);
@@ -186,6 +173,7 @@ class OracleService {
     value: bigint,
     updatedAt: bigint
   ) {
+
     console.log(`Submitting callback for request ${requestId}...`);
     console.log(`  Value: ${value}`);
     console.log(`  Updated At: ${updatedAt}`);
@@ -198,7 +186,7 @@ class OracleService {
         value,
         updatedAt,
         {
-          gasLimit: 500000 // Set appropriate gas limit
+          gasLimit: 500000 
         }
       );
 
@@ -207,7 +195,6 @@ class OracleService {
       const receipt = await tx.wait();
       console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
     } catch (error: any) {
-      // Handle specific errors
       if (error.message?.includes('already fulfilled')) {
         console.log('Request already fulfilled on-chain');
         this.processedRequests.add(requestId);

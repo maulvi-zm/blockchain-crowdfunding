@@ -92,12 +92,6 @@ export function CreateCampaignPage() {
         goal_idr: goalIdr ? Number(goalIdr) : null,
       });
 
-      let ethAmount =
-        goalIdr && rate ? (Number(goalIdr) / rate).toFixed(18) : goal || "0";
-
-      console.log("eth: ", ethAmount);
-      const goalWei = ethers.parseEther(ethAmount);
-
       const todayStr = new Date().toISOString().slice(0, 10);
       let deadlineTs: number;
       if (deadlineDate < todayStr && APP_ENV === "local") {
@@ -111,12 +105,14 @@ export function CreateCampaignPage() {
         return;
       }
 
+      console.log("goalIDR: ", Number(goalIdr))
+
       const signer = await provider.getSigner();
 
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CROWDFUNDING_ABI, signer);
 
       const tx = await contract.createCampaign(
-        goalWei,
+        Number(goalIdr),
         deadlineTs,
         metadataCid
       );

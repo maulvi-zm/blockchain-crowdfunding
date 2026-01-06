@@ -8,7 +8,7 @@ contract Crowdfunding is ReentrancyGuard {
 
     struct Campaign {
         address creator;
-        uint256 goalWei;
+        uint256 goalIDR;
         uint64 deadlineTs;
         uint256 totalRaisedWei;
         CampaignStatus status;
@@ -16,20 +16,27 @@ contract Crowdfunding is ReentrancyGuard {
         bool withdrawn;
     }
 
-    // State Variables
+    struct OracleData {
+        int256 ethToIdrRate;      
+        uint64 updatedAt;
+        bool fulfilled;
+    }
+
     uint256 public campaignCount;
     address public admin;
     address public oracleAddress;
 
+    uint256 public constant ORACLE_STALENESS_THRESHOLD = 90;
+
     mapping(uint256 => Campaign) public campaigns;
     mapping(uint256 => mapping(address => uint256)) public contributionsWei;
-    mapping(uint256 => int256) public campaignOracleValue; // e.g., Rate ETH_IDR
+    mapping(uint256 => OracleData) public campaignOracleData;
     mapping(bytes32 => bool) public fulfilledRequests;
 
     // Events
-    event CampaignCreated(uint256 indexed campaignId, address indexed creator, uint256 goalWei, uint64 deadlineTs, string metadataCID);
+    event CampaignCreated(uint256 indexed campaignId, address indexed creator, uint256 goalIDR, uint64 deadlineTs, string metadataCID);
     event ContributionReceived(uint256 indexed campaignId, address indexed contributor, uint256 amountWei, uint256 newTotalRaisedWei);
-    event CampaignFinalized(uint256 indexed campaignId, CampaignStatus status, uint256 totalRaisedWei, uint256 goalWei);
+    event CampaignFinalized(uint256 indexed campaignId, CampaignStatus status, uint256 totalRaisedWei, uint256 totalRaisedIDR, uint256 goalWei);
     event FundsWithdrawn(uint256 indexed campaignId, address indexed creator, uint256 amountWei);
     event RefundIssued(uint256 indexed campaignId, address indexed contributor, uint256 amountWei);
     
@@ -53,15 +60,15 @@ contract Crowdfunding is ReentrancyGuard {
     }
 
     // SC-FN-01: Create Campaign
-    function createCampaign(uint256 _goalWei, uint64 _deadlineTs, string calldata _metadataCID) external returns (uint256) {
-        require(_goalWei > 0, "GOAL_ZERO");
+    function createCampaign(uint256 _goalIDR, uint64 _deadlineTs, string calldata _metadataCID) external returns (uint256) {
+        require(_goalIDR > 0, "GOAL_ZERO");
         require(_deadlineTs > block.timestamp, "INVALID_DEADLINE");
         require(bytes(_metadataCID).length > 0, "EMPTY_CID");
 
         uint256 campaignId = ++campaignCount;
         campaigns[campaignId] = Campaign({
             creator: msg.sender,
-            goalWei: _goalWei,
+            goalIDR: _goalIDR,
             deadlineTs: _deadlineTs,
             totalRaisedWei: 0,
             status: CampaignStatus.ACTIVE,
@@ -69,7 +76,7 @@ contract Crowdfunding is ReentrancyGuard {
             withdrawn: false
         });
 
-        emit CampaignCreated(campaignId, msg.sender, _goalWei, _deadlineTs, _metadataCID);
+        emit CampaignCreated(campaignId, msg.sender, _goalIDR, _deadlineTs, _metadataCID);
         return campaignId;
     }
 
@@ -100,7 +107,11 @@ contract Crowdfunding is ReentrancyGuard {
         require(!fulfilledRequests[_requestId], "ALREADY_FULFILLED");
         
         fulfilledRequests[_requestId] = true;
-        campaignOracleValue[_campaignId] = _value;
+        campaignOracleData[_campaignId] = OracleData({
+                ethToIdrRate: _value,
+                updatedAt: _updatedAt,
+                fulfilled: true
+        });
 
         emit OracleDataUpdated(_campaignId, _requestId, _dataKey, _value, _updatedAt);
     }
@@ -111,13 +122,22 @@ contract Crowdfunding is ReentrancyGuard {
         require(c.status == CampaignStatus.ACTIVE, "NOT_ACTIVE");
         require(block.timestamp >= c.deadlineTs, "DEADLINE_NOT_REACHED");
 
-        if (c.totalRaisedWei >= c.goalWei) {
+        OracleData storage oracleData = campaignOracleData[_campaignId];
+        require(oracleData.fulfilled, "ORACLE_DATA_NOT_READY");
+        
+        require(
+            block.timestamp - oracleData.updatedAt <= ORACLE_STALENESS_THRESHOLD,
+            "ORACLE_DATA_STALE"
+        );
+
+        uint256 totalRaisedIDR = (c.totalRaisedWei * uint256(oracleData.ethToIdrRate)) / 1e18;
+
+        if (totalRaisedIDR >= c.goalIDR) {
             c.status = CampaignStatus.SUCCESS;
         } else {
             c.status = CampaignStatus.FAILED;
         }
-
-        emit CampaignFinalized(_campaignId, c.status, c.totalRaisedWei, c.goalWei);
+        emit CampaignFinalized(_campaignId, c.status, c.totalRaisedWei, totalRaisedIDR, c.goalIDR);
     }
 
     // SC-FN-04: Withdraw Funds (Creator Only)

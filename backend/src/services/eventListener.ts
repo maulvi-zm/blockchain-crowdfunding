@@ -170,7 +170,7 @@ async function handleEvent(event: ParsedEvent, client: any) {
 }
 
 async function handleCampaignCreated(event: ParsedEvent, client: any) {
-  const [campaignId, creator, goalWei, deadlineTs, metadataCID] = event.args;
+  const [campaignId, creator, goalIDR, deadlineTs, metadataCID] = event.args;
   
   await client.query(`
     INSERT INTO campaigns 
@@ -185,7 +185,7 @@ async function handleCampaignCreated(event: ParsedEvent, client: any) {
   `, [
     campaignId.toString(),
     creator.toLowerCase(),
-    goalWei.toString(),
+    goalIDR.toString(),
     deadlineTs.toString(),
     metadataCID,
     event.transactionHash,
@@ -203,7 +203,6 @@ async function handleCampaignCreated(event: ParsedEvent, client: any) {
 async function handleContributionReceived(event: ParsedEvent, client: any) {
   const [campaignId, contributor, amountWei, newTotalRaisedWei] = event.args;
   
-  // Update campaign total
   await client.query(`
     UPDATE campaigns 
     SET total_raised_wei = $1

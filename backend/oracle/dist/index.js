@@ -1,0 +1,149 @@
+import { ethers } from 'ethers';
+import { contractABI } from './abi/index.js';
+import { fetchExchangeRate } from './service/dataProviders.js';
+import 'dotenv/config';
+const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const ORACLE_PRIVATE_KEY = process.env.ORACLE_PRIVATE_KEY;
+const MAX_RETRY = 3;
+const BACKOFF_MS = [500, 1500, 3000];
+function isEventLog(log) {
+    return 'args' in log;
+}
+class OracleService {
+    provider;
+    wallet;
+    contract;
+    processedRequests;
+    constructor() {
+        this.provider = new ethers.JsonRpcProvider(RPC_URL);
+        this.wallet = new ethers.Wallet(ORACLE_PRIVATE_KEY, this.provider);
+        this.contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, this.wallet);
+        this.processedRequests = new Set();
+        console.log('Oracle Service initialized');
+        console.log('Oracle Address:', this.wallet.address);
+        console.log('Contract Address:', CONTRACT_ADDRESS);
+    }
+    async start() {
+        console.log('Starting Oracle Service...');
+        this.contract.on('OracleDataRequested', async (campaignId, requestId, dataKey, param, event) => {
+            const request = {
+                campaignId,
+                requestId,
+                dataKey,
+                param,
+                blockNumber: event.log.blockNumber,
+                transactionHash: event.log.transactionHash
+            };
+            await this.handleRequest(request);
+        });
+        await this.processPastEvents();
+        console.log('Oracle Service is now listening for requests...');
+    }
+    async processPastEvents() {
+        try {
+            const currentBlock = await this.provider.getBlockNumber();
+            const fromBlock = Math.max(0, currentBlock - 1000);
+            console.log(`Checking past events from block ${fromBlock} to ${currentBlock}`);
+            const events = await this.contract.queryFilter('OracleDataRequested', fromBlock, currentBlock);
+            for (const event of events) {
+                if (!isEventLog(event))
+                    continue;
+                const [campaignId, requestId, dataKey, param] = event.args;
+                if (!this.processedRequests.has(requestId)) {
+                    const request = {
+                        campaignId,
+                        requestId,
+                        dataKey,
+                        param,
+                        blockNumber: event.blockNumber,
+                        transactionHash: event.transactionHash
+                    };
+                    await this.handleRequest(request);
+                }
+            }
+        }
+        catch (error) {
+            console.error('Error processing past events:', error);
+        }
+    }
+    async handleRequest(request) {
+        const { campaignId, requestId, dataKey, param } = request;
+        if (this.processedRequests.has(requestId)) {
+            console.log(`Request ${requestId} already processed, skipping`);
+            return;
+        }
+        console.log(`\nProcessing request:`);
+        console.log(`  Campaign ID: ${campaignId}`);
+        console.log(`  Request ID: ${requestId}`);
+        console.log(`  Data Key: ${dataKey}`);
+        console.log(`  Param: ${param}`);
+        try {
+            let value;
+            let updatedAt;
+            switch (dataKey) {
+                case 'ETH_IDR':
+                    const rateData = await this.fetchWithRetry(() => fetchExchangeRate('ETH', 'IDR'));
+                    value = BigInt(Math.floor(rateData.rate * 100)); // Store with 2 decimals
+                    updatedAt = BigInt(rateData.timestamp);
+                    break;
+                default:
+                    console.error(`Unknown data key: ${dataKey}`);
+                    return;
+            }
+            await this.submitCallback(campaignId, requestId, dataKey, value, updatedAt);
+            this.processedRequests.add(requestId);
+            console.log(`✓ Request ${requestId} processed successfully`);
+        }
+        catch (error) {
+            console.error(`✗ Failed to process request ${requestId}:`, error);
+        }
+    }
+    async fetchWithRetry(fetchFn, retries = MAX_RETRY) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                return await fetchFn();
+            }
+            catch (error) {
+                if (i === retries - 1)
+                    throw error;
+                const backoff = BACKOFF_MS[i] || BACKOFF_MS[BACKOFF_MS.length - 1];
+                console.log(`Retry ${i + 1}/${retries} after ${backoff}ms...`);
+                await new Promise(resolve => setTimeout(resolve, backoff));
+            }
+        }
+        throw new Error('All retries failed');
+    }
+    async submitCallback(campaignId, requestId, dataKey, value, updatedAt) {
+        console.log(`Submitting callback for request ${requestId}...`);
+        console.log(`  Value: ${value}`);
+        console.log(`  Updated At: ${updatedAt}`);
+        try {
+            const tx = await this.contract.oracleCallback(campaignId, requestId, dataKey, value, updatedAt, {
+                gasLimit: 500000
+            });
+            console.log(`Transaction sent: ${tx.hash}`);
+            const receipt = await tx.wait();
+            console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
+        }
+        catch (error) {
+            if (error.message?.includes('already fulfilled')) {
+                console.log('Request already fulfilled on-chain');
+                this.processedRequests.add(requestId);
+            }
+            else if (error.message?.includes('Unauthorized')) {
+                console.error('Oracle not authorized! Check oracle address in contract');
+                throw error;
+            }
+            else {
+                throw error;
+            }
+        }
+    }
+}
+// Start the service
+const oracle = new OracleService();
+oracle.start().catch(error => {
+    console.error('Failed to start Oracle Service:', error);
+    process.exit(1);
+});

@@ -1,6 +1,6 @@
 export const contractABI = [
   // Events
-  "event CampaignCreated(uint256 indexed campaignId, address indexed creator, uint256 goalWei, uint64 deadlineTs, string metadataCID)",
+  "event CampaignCreated(uint256 indexed campaignId, address indexed creator, uint256 goalIDR, uint64 deadlineTs, string metadataCID)",
   "event ContributionReceived(uint256 indexed campaignId, address indexed contributor, uint256 amountWei, uint256 newTotalRaisedWei)",
   "event CampaignFinalized(uint256 indexed campaignId, uint8 status, uint256 totalRaisedWei, uint256 goalWei)",
   "event FundsWithdrawn(uint256 indexed campaignId, address indexed creator, uint256 amountWei)",
