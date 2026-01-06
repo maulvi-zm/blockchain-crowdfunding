@@ -99,14 +99,24 @@ export function CreateCampaignPage() {
       const selectedDeadline = new Date(`${deadlineDate}T${timePart}`);
       const latestBlock = await provider.getBlock("latest");
       const chainNow = latestBlock?.timestamp || Math.floor(Date.now() / 1000);
+      const minBufferSeconds = TEST_DEADLINE_SECONDS;
       if (deadlineDate < todayStr || Number.isNaN(selectedDeadline.getTime()) || selectedDeadline.getTime() <= chainNow * 1000) {
-        deadlineTs = chainNow + TEST_DEADLINE_SECONDS;
+        deadlineTs = chainNow + minBufferSeconds;
       } else {
         deadlineTs = Math.floor(selectedDeadline.getTime() / 1000);
       }
-      if (!deadlineTs || deadlineTs <= chainNow) {
-        deadlineTs = chainNow + TEST_DEADLINE_SECONDS;
+      if (!deadlineTs || deadlineTs <= chainNow + minBufferSeconds) {
+        deadlineTs = chainNow + minBufferSeconds;
       }
+      console.log("deadline debug", {
+        selectedDate: deadlineDate,
+        selectedTime: deadlineTime || null,
+        selectedDeadlineMs: selectedDeadline.getTime(),
+        chainNow,
+        deadlineTs,
+        chainNowIso: new Date(chainNow * 1000).toISOString(),
+        deadlineIso: new Date(deadlineTs * 1000).toISOString(),
+      });
 
       const signer = await provider.getSigner();
 
