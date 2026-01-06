@@ -1,16 +1,13 @@
-// src/routes/oracle.ts
 import { Hono } from 'hono'
 import { ethers } from 'ethers'
 import { contractABI } from '../config/abi'
 
 export const oracleRouter = new Hono()
 
-// GET /api/v1/oracle/rate?pair=ETH_IDR
 oracleRouter.get('/rate', async (c) => {
   try {
     const pair = (c.req.query('pair') || 'ETH_IDR').toString()
 
-    // Only support ETH_IDR for now
     if (pair !== 'ETH_IDR') {
       return c.json({ error: 'Unsupported pair' }, 400)
     }

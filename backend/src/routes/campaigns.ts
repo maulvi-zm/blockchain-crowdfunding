@@ -4,7 +4,6 @@ import { getCachedMetadata, normalizeIpfsUrl } from "../services/ipfs";
 
 export const campaignsRouter = new Hono();
 
-// BE-API-01: List campaigns (search/filter/paginate)
 campaignsRouter.get("/", async (c) => {
   try {
     const q = c.req.query("q") || "";
@@ -172,7 +171,7 @@ campaignsRouter.get("/", async (c) => {
   }
 });
 
-// BE-API-05: Contributions by contributor address (paginated)
+
 campaignsRouter.get("/contributions/by/:address", async (c) => {
   try {
     const address = c.req.param("address").toLowerCase();
@@ -285,7 +284,6 @@ campaignsRouter.get("/contributions/by/:address", async (c) => {
   }
 });
 
-// BE-API-02: Campaign detail
 campaignsRouter.get("/:campaignId", async (c) => {
   try {
     const campaignId = c.req.param("campaignId");
@@ -320,8 +318,6 @@ campaignsRouter.get("/:campaignId", async (c) => {
     }
 
     const campaign = result.rows[0];
-
-    // Get contributors count
     const countResult = await query(
       `
       SELECT COUNT(*) as count 
@@ -330,15 +326,6 @@ campaignsRouter.get("/:campaignId", async (c) => {
     `,
       [campaignId]
     );
-
-    // Get oracle data/ Jujur oracle masih blm nangkep bgt
-    // const oracleResult = await query(`
-    //   SELECT data_key, value, updated_at_chain, created_at
-    //   FROM oracle_updates
-    //   WHERE campaign_id = $1
-    //   ORDER BY created_at DESC
-    //   LIMIT 5
-    // `, [campaignId]);
 
     const metadata = await getCachedMetadata(campaign.metadata_cid);
 
@@ -370,12 +357,6 @@ campaignsRouter.get("/:campaignId", async (c) => {
       stats: {
         contributors: parseInt(countResult.rows[0].count),
       },
-      // oracle: oracleResult.rows.map(o => ({
-      //   dataKey: o.data_key,
-      //   value: o.value,
-      //   updatedAt: parseInt(o.updated_at_chain),
-      //   recordedAt: o.created_at
-      // })),
       blockchain: {
         txHash: campaign.tx_create_hash,
         blockNumber: parseInt(campaign.block_created),
@@ -395,7 +376,7 @@ campaignsRouter.get("/:campaignId", async (c) => {
   }
 });
 
-// BE-API-03: Contribution for specific user
+
 campaignsRouter.get("/:campaignId/contributions/:address", async (c) => {
   try {
     const campaignId = c.req.param("campaignId");
@@ -409,7 +390,6 @@ campaignsRouter.get("/:campaignId/contributions/:address", async (c) => {
       return c.json({ error: "Invalid address format" }, 400);
     }
 
-    // Check if campaign exists
     const campaignResult = await query(
       "SELECT 1 FROM campaigns WHERE campaign_id = $1",
       [campaignId]
@@ -448,7 +428,6 @@ campaignsRouter.get("/:campaignId/contributions/:address", async (c) => {
   }
 });
 
-// Additional endpoint: Get all contributors for a campaign
 campaignsRouter.get("/:campaignId/contributions", async (c) => {
   try {
     const campaignId = c.req.param("campaignId");
@@ -463,7 +442,6 @@ campaignsRouter.get("/:campaignId/contributions", async (c) => {
       return c.json({ error: "Invalid campaign ID" }, 400);
     }
 
-    // Get total count
     const countResult = await query(
       `
       SELECT COUNT(*) as total 
@@ -474,7 +452,6 @@ campaignsRouter.get("/:campaignId/contributions", async (c) => {
     );
     const total = parseInt(countResult.rows[0].total);
 
-    // Get contributions
     const result = await query(
       `
       SELECT 

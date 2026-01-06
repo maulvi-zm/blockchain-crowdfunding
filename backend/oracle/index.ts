@@ -1,4 +1,3 @@
-// oracle/index.ts
 import { EventLog, Log, ethers } from 'ethers';
 import { contractABI } from '../src/config/abi';
 import { fetchExchangeRate } from './dataProviders';
@@ -136,7 +135,6 @@ class OracleService {
     console.log(`  Param: ${param}`);
 
     try {
-      // Fetch data based on dataKey
       let value: bigint;
       let updatedAt: bigint;
 
@@ -148,7 +146,6 @@ class OracleService {
           break;
 
         case 'CAMPAIGN_VERIFIED':
-          // Placeholder for verification logic
           value = BigInt(1); // 1 = verified, 0 = not verified
           updatedAt = BigInt(Math.floor(Date.now() / 1000));
           break;
@@ -158,10 +155,8 @@ class OracleService {
           return;
       }
 
-      // Submit callback to contract
       await this.submitCallback(campaignId, requestId, dataKey, value, updatedAt);
       
-      // Mark as processed
       this.processedRequests.add(requestId);
       
       console.log(`✓ Request ${requestId} processed successfully`);
@@ -207,7 +202,7 @@ class OracleService {
         value,
         updatedAt,
         {
-          gasLimit: 500000 // Set appropriate gas limit
+          gasLimit: 500000 
         }
       );
 

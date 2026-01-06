@@ -19,7 +19,6 @@ export function CreateCampaignPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // fetch oracle rate from backend (fallback to CoinGecko)
   async function fetchRate() {
     try {
       const resp = await fetch(`${API_BASE_URL}/api/v1/oracle/rate?pair=ETH_IDR`);
@@ -34,7 +33,6 @@ export function CreateCampaignPage() {
       console.warn("Backend rate fetch failed, falling back");
     }
 
-    // fallback to CoinGecko
     try {
       const cg = await fetch(
         "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=idr"

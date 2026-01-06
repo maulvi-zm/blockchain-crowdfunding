@@ -1,22 +1,21 @@
-// src/db/init.ts
 import { Pool, PoolClient } from 'pg';
 
-// Database configuration from environment
+
 const DB_CONFIG = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME || 'crowdfunding',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
-  max: parseInt(process.env.DB_POOL_SIZE || '20'), // Connection pool size
+  max: parseInt(process.env.DB_POOL_SIZE || '20'), 
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 };
 
-// Create connection pool
+
 export const pool = new Pool(DB_CONFIG);
 
-// Test connection on startup
+
 pool.on('connect', () => {
   console.log('  ✓ Database connection established');
 });
@@ -26,7 +25,6 @@ pool.on('error', (err) => {
   process.exit(1);
 });
 
-// Helper function to execute queries
 export async function query(text: string, params?: any[]) {
   const start = Date.now();
   const res = await pool.query(text, params);
@@ -39,12 +37,12 @@ export async function query(text: string, params?: any[]) {
   return res;
 }
 
-// Get a client from the pool for transactions
+
 export async function getClient(): Promise<PoolClient> {
   return await pool.connect();
 }
 
-// Initialize database schema
+
 export async function initDatabase() {
   const client = await getClient();
   

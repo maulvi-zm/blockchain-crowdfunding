@@ -1,4 +1,3 @@
-//Yg Oracle belum aing cek karena masih kurang paham bgt
 import { ethers } from 'ethers';
 import { query, getClient } from '../db/init';
 import { contractABI } from '../config/abi';
@@ -70,7 +69,6 @@ export function startEventListener() {
 
       console.log(`  Found ${logs.length} events`);
 
-      // Process events in transaction
       const client = await getClient();
       
       try {
@@ -92,7 +90,7 @@ export function startEventListener() {
               }, client);
             }
           } catch (parseError) {
-            console.error('  ⚠️  Failed to parse log:', parseError);
+            console.error('  Failed to parse log:', parseError);
           }
         }
 
@@ -104,7 +102,7 @@ export function startEventListener() {
         );
 
         await client.query('COMMIT');
-        console.log(`  ✅ Synced to block ${toBlock}\n`);
+        console.log(` Synced to block ${toBlock}\n`);
       } catch (error) {
         await client.query('ROLLBACK');
         throw error;
@@ -112,7 +110,7 @@ export function startEventListener() {
         client.release();
       }
     } catch (error) {
-      console.error('❌ Error processing events:', error);
+      console.error('Error processing events:', error);
     } finally {
       isProcessing = false;
     }
@@ -161,10 +159,10 @@ async function handleEvent(event: ParsedEvent, client: any) {
         await handleOracleDataUpdated(event, client);
         break;
       default:
-        console.log(`     ⚠️  Unknown event type: ${eventName}`);
+        console.log(`   Unknown event type: ${eventName}`);
     }
   } catch (error) {
-    console.error(`     ❌ Error handling ${eventName}:`, error);
+    console.error(`     Error handling ${eventName}:`, error);
     throw error;
   }
 }
@@ -194,23 +192,20 @@ async function handleCampaignCreated(event: ParsedEvent, client: any) {
 
   console.log(`     Campaign ${campaignId} created by ${creator.slice(0, 8)}...`);
 
-  // Fetch metadata asynchronously
   fetchMetadata(metadataCID).catch(err => {
-    console.error(`     ⚠️  Failed to fetch metadata for CID ${metadataCID}:`, err.message);
+    console.error(`Failed to fetch metadata for CID ${metadataCID}:`, err.message);
   });
 }
 
 async function handleContributionReceived(event: ParsedEvent, client: any) {
   const [campaignId, contributor, amountWei, newTotalRaisedWei] = event.args;
   
-  // Update campaign total
   await client.query(`
     UPDATE campaigns 
     SET total_raised_wei = $1
     WHERE campaign_id = $2
   `, [newTotalRaisedWei.toString(), campaignId.toString()]);
 
-  // Upsert contribution
   await client.query(`
     INSERT INTO contributions (campaign_id, contributor_address, amount_wei, last_tx_hash)
     VALUES ($1, $2, $3, $4)

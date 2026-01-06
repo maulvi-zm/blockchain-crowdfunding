@@ -47,12 +47,10 @@ export async function fetchMetadata(cid: string): Promise<Metadata | null> {
 
     const metadata = await response.json();
 
-    // Validate metadata structure
     if (!metadata.name || !metadata.description) {
       console.warn(`Metadata for CID ${cid} is missing required fields`);
     }
 
-    // Cache it in PostgreSQL with JSONB
     await query(`
       INSERT INTO metadata_cache 
       (cid, title, description, image, raw_json)
@@ -82,9 +80,6 @@ export async function fetchMetadata(cid: string): Promise<Metadata | null> {
   }
 }
 
-/**
- * Get cached metadata without fetching
- */
 export async function getCachedMetadata(cid: string): Promise<Metadata | null> {
   try {
     const result = await query('SELECT raw_json FROM metadata_cache WHERE cid = $1', [cid]);

@@ -1,17 +1,13 @@
-// src/routes/health.ts
 import { Hono } from 'hono';
 import { query, pool } from '../db/init';
 
 export const healthRouter = new Hono();
 
-// BE-API-04: Health / Sync status
 healthRouter.get('/health', async (c) => {
   try {
-    // Get sync state
     const syncResult = await query('SELECT last_processed_block, last_processed_log_index, updated_at FROM sync_state WHERE id = 1');
     const syncState = syncResult.rows[0];
 
-    // Get database stats
     const statsResult = await query(`
       SELECT 
         (SELECT COUNT(*) FROM campaigns) as total_campaigns,
@@ -25,7 +21,6 @@ healthRouter.get('/health', async (c) => {
     `);
     const stats = statsResult.rows[0];
 
-    // Get pool stats
     const poolStats = {
       total: pool.totalCount,
       idle: pool.idleCount,
