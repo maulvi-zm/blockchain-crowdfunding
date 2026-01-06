@@ -11,7 +11,8 @@ describe("Crowdfunding Smart Contract", function () {
   let oracle;
   let addrs;
 
-  const GOAL = ethers.utils.parseEther("10"); // 10 ETH
+  const GOAL_IDR = ethers.BigNumber.from("1000000"); // 1,000,000 IDR
+  const CONTRIBUTION_WEI = ethers.utils.parseEther("1"); // 1 ETH
   const METADATA = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
 
   beforeEach(async function () {
@@ -35,13 +36,13 @@ describe("Crowdfunding Smart Contract", function () {
     it("Harus bisa membuat campaign baru", async function () {
       const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 jam dari sekarang
       
-      await expect(crowdfunding.connect(creator).createCampaign(GOAL, deadline, METADATA))
+      await expect(crowdfunding.connect(creator).createCampaign(GOAL_IDR, deadline, METADATA))
         .to.emit(crowdfunding, "CampaignCreated")
-        .withArgs(1, creator.address, GOAL, deadline, METADATA);
+        .withArgs(1, creator.address, GOAL_IDR, deadline, METADATA);
 
       const campaign = await crowdfunding.campaigns(1);
       expect(campaign.creator).to.equal(creator.address);
-      expect(campaign.goalWei).to.equal(GOAL);
+      expect(campaign.goalIdr).to.equal(GOAL_IDR);
       expect(campaign.status).to.equal(0); // 0 = ACTIVE
     });
 
@@ -55,7 +56,7 @@ describe("Crowdfunding Smart Contract", function () {
     let deadline;
     beforeEach(async function () {
       deadline = Math.floor(Date.now() / 1000) + 3600;
-      await crowdfunding.connect(creator).createCampaign(GOAL, deadline, METADATA);
+      await crowdfunding.connect(creator).createCampaign(GOAL_IDR, deadline, METADATA);
     });
 
     it("Harus menerima kontribusi", async function () {
@@ -76,7 +77,7 @@ describe("Crowdfunding Smart Contract", function () {
   describe("Oracle Integration", function () {
     it("Harus bisa merequest data oracle", async function () {
       const deadline = Math.floor(Date.now() / 1000) + 3600;
-      await crowdfunding.connect(creator).createCampaign(GOAL, deadline, METADATA);
+      await crowdfunding.connect(creator).createCampaign(GOAL_IDR, deadline, METADATA);
 
       await expect(crowdfunding.requestOracleData(1, "ETH_IDR", ""))
         .to.emit(crowdfunding, "OracleDataRequested");
@@ -93,10 +94,14 @@ describe("Crowdfunding Smart Contract", function () {
   describe("Finalization & Withdrawals", function () {
     it("Harus sukses jika goal tercapai setelah deadline", async function () {
       const deadline = (await ethers.provider.getBlock("latest")).timestamp + 1000;
-      await crowdfunding.connect(creator).createCampaign(GOAL, deadline, METADATA);
+      await crowdfunding.connect(creator).createCampaign(GOAL_IDR, deadline, METADATA);
 
       // Backer kontribusi sampai goal tercapai
-      await crowdfunding.connect(backer1).contribute(1, { value: GOAL });
+      await crowdfunding.connect(backer1).contribute(1, { value: CONTRIBUTION_WEI });
+
+      const requestId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("rate-success"));
+      const rateScaled = ethers.BigNumber.from("100000000"); // 1,000,000 IDR/ETH * 100
+      await crowdfunding.connect(oracle).oracleCallback(1, requestId, "ETH_IDR", rateScaled, 123456);
 
       // Lompat waktu ke setelah deadline
       await ethers.provider.send("evm_increaseTime", [1001]);
@@ -104,7 +109,7 @@ describe("Crowdfunding Smart Contract", function () {
 
       await expect(crowdfunding.finalizeCampaign(1))
         .to.emit(crowdfunding, "CampaignFinalized")
-        .withArgs(1, 1, GOAL, GOAL); // 1 = SUCCESS status
+        .withArgs(1, 1, CONTRIBUTION_WEI, GOAL_IDR); // 1 = SUCCESS status
 
       // Creator menarik dana
       const initialBalance = await creator.getBalance();
@@ -116,9 +121,13 @@ describe("Crowdfunding Smart Contract", function () {
 
     it("Harus gagal (FAILED) jika goal tidak tercapai", async function () {
         const deadline = (await ethers.provider.getBlock("latest")).timestamp + 1000;
-        await crowdfunding.connect(creator).createCampaign(GOAL, deadline, METADATA);
+        await crowdfunding.connect(creator).createCampaign(GOAL_IDR, deadline, METADATA);
   
         await crowdfunding.connect(backer1).contribute(1, { value: ethers.utils.parseEther("1") });
+
+        const requestId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("rate-fail"));
+        const rateScaled = ethers.BigNumber.from("10000000"); // 100,000 IDR/ETH * 100
+        await crowdfunding.connect(oracle).oracleCallback(1, requestId, "ETH_IDR", rateScaled, 123456);
   
         await ethers.provider.send("evm_increaseTime", [1001]);
         await ethers.provider.send("evm_mine");
@@ -132,10 +141,14 @@ describe("Crowdfunding Smart Contract", function () {
   describe("Refunds", function () {
     it("Backer harus bisa mengambil kembali uang jika campaign gagal", async function () {
       const deadline = (await ethers.provider.getBlock("latest")).timestamp + 1000;
-      await crowdfunding.connect(creator).createCampaign(GOAL, deadline, METADATA);
+      await crowdfunding.connect(creator).createCampaign(GOAL_IDR, deadline, METADATA);
 
       const contribution = ethers.utils.parseEther("2");
       await crowdfunding.connect(backer1).contribute(1, { value: contribution });
+
+      const requestId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("rate-refund"));
+      const rateScaled = ethers.BigNumber.from("10000000"); // 100,000 IDR/ETH * 100
+      await crowdfunding.connect(oracle).oracleCallback(1, requestId, "ETH_IDR", rateScaled, 123456);
 
       await ethers.provider.send("evm_increaseTime", [1001]);
       await ethers.provider.send("evm_mine");

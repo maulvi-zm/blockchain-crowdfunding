@@ -8,7 +8,7 @@ contract Crowdfunding is ReentrancyGuard {
 
     struct Campaign {
         address creator;
-        uint256 goalWei;
+        uint256 goalIdr;
         uint64 deadlineTs;
         uint256 totalRaisedWei;
         CampaignStatus status;
@@ -20,22 +20,23 @@ contract Crowdfunding is ReentrancyGuard {
     uint256 public campaignCount;
     address public admin;
     address public oracleAddress;
+    uint256 public latestEthIdrRateScaled;
 
     mapping(uint256 => Campaign) public campaigns;
     mapping(uint256 => mapping(address => uint256)) public contributionsWei;
-    mapping(uint256 => int256) public campaignOracleValue; // e.g., Rate ETH_IDR
+    mapping(uint256 => uint256) public campaignEthIdrRateScaled;
     mapping(bytes32 => bool) public fulfilledRequests;
 
     // Events
-    event CampaignCreated(uint256 indexed campaignId, address indexed creator, uint256 goalWei, uint64 deadlineTs, string metadataCID);
+    event CampaignCreated(uint256 indexed campaignId, address indexed creator, uint256 goalIdr, uint64 deadlineTs, string metadataCID);
     event ContributionReceived(uint256 indexed campaignId, address indexed contributor, uint256 amountWei, uint256 newTotalRaisedWei);
-    event CampaignFinalized(uint256 indexed campaignId, CampaignStatus status, uint256 totalRaisedWei, uint256 goalWei);
+    event CampaignFinalized(uint256 indexed campaignId, CampaignStatus status, uint256 totalRaisedWei, uint256 goalIdr);
     event FundsWithdrawn(uint256 indexed campaignId, address indexed creator, uint256 amountWei);
     event RefundIssued(uint256 indexed campaignId, address indexed contributor, uint256 amountWei);
     
     // Oracle Events
     event OracleDataRequested(uint256 indexed campaignId, bytes32 indexed requestId, string dataKey, string param);
-    event OracleDataUpdated(uint256 indexed campaignId, bytes32 indexed requestId, string dataKey, int256 value, uint64 updatedAt);
+    event OracleDataUpdated(uint256 indexed campaignId, bytes32 indexed requestId, string dataKey, uint256 value, uint64 updatedAt);
 
     constructor(address _oracleAddress) {
         admin = msg.sender;
@@ -53,15 +54,15 @@ contract Crowdfunding is ReentrancyGuard {
     }
 
     // SC-FN-01: Create Campaign
-    function createCampaign(uint256 _goalWei, uint64 _deadlineTs, string calldata _metadataCID) external returns (uint256) {
-        require(_goalWei > 0, "GOAL_ZERO");
+    function createCampaign(uint256 _goalIdr, uint64 _deadlineTs, string calldata _metadataCID) external returns (uint256) {
+        require(_goalIdr > 0, "GOAL_ZERO");
         require(_deadlineTs > block.timestamp, "INVALID_DEADLINE");
         require(bytes(_metadataCID).length > 0, "EMPTY_CID");
 
         uint256 campaignId = ++campaignCount;
         campaigns[campaignId] = Campaign({
             creator: msg.sender,
-            goalWei: _goalWei,
+            goalIdr: _goalIdr,
             deadlineTs: _deadlineTs,
             totalRaisedWei: 0,
             status: CampaignStatus.ACTIVE,
@@ -69,7 +70,7 @@ contract Crowdfunding is ReentrancyGuard {
             withdrawn: false
         });
 
-        emit CampaignCreated(campaignId, msg.sender, _goalWei, _deadlineTs, _metadataCID);
+        emit CampaignCreated(campaignId, msg.sender, _goalIdr, _deadlineTs, _metadataCID);
         return campaignId;
     }
 
@@ -96,11 +97,13 @@ contract Crowdfunding is ReentrancyGuard {
     }
 
     // SC-FN-07: Oracle Callback (Hanya bisa dipanggil Oracle Service)
-    function oracleCallback(uint256 _campaignId, bytes32 _requestId, string calldata _dataKey, int256 _value, uint64 _updatedAt) external onlyOracle {
+    function oracleCallback(uint256 _campaignId, bytes32 _requestId, string calldata _dataKey, uint256 _value, uint64 _updatedAt) external onlyOracle {
         require(!fulfilledRequests[_requestId], "ALREADY_FULFILLED");
+        require(keccak256(bytes(_dataKey)) == keccak256(bytes("ETH_IDR")), "UNSUPPORTED_DATA_KEY");
         
         fulfilledRequests[_requestId] = true;
-        campaignOracleValue[_campaignId] = _value;
+        latestEthIdrRateScaled = _value;
+        campaignEthIdrRateScaled[_campaignId] = _value;
 
         emit OracleDataUpdated(_campaignId, _requestId, _dataKey, _value, _updatedAt);
     }
@@ -111,13 +114,19 @@ contract Crowdfunding is ReentrancyGuard {
         require(c.status == CampaignStatus.ACTIVE, "NOT_ACTIVE");
         require(block.timestamp >= c.deadlineTs, "DEADLINE_NOT_REACHED");
 
-        if (c.totalRaisedWei >= c.goalWei) {
+        uint256 rateScaled = campaignEthIdrRateScaled[_campaignId];
+        require(rateScaled > 0, "ORACLE_RATE_MISSING");
+
+        uint256 raisedIdrScaled = (c.totalRaisedWei * rateScaled) / 1e18;
+        uint256 goalIdrScaled = c.goalIdr * 100;
+
+        if (raisedIdrScaled >= goalIdrScaled) {
             c.status = CampaignStatus.SUCCESS;
         } else {
             c.status = CampaignStatus.FAILED;
         }
 
-        emit CampaignFinalized(_campaignId, c.status, c.totalRaisedWei, c.goalWei);
+        emit CampaignFinalized(_campaignId, c.status, c.totalRaisedWei, c.goalIdr);
     }
 
     // SC-FN-04: Withdraw Funds (Creator Only)
