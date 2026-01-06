@@ -6,13 +6,13 @@ import { ethers } from 'ethers'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ProgressBar } from '../components/ui/ProgressBar'
-import { CHAIN_ID, CONTRACT_ADDRESS, CROWDFUNDING_ABI } from '../contract/crowdfunding'
+import { CHAIN_ID, CONTRACT_ADDRESS, CROWDFUNDING_ABI, getReadOnlyContract } from '../contract/crowdfunding'
 import { useWallet } from '../contexts/wallet'
 
 type CampaignApiData = {
   campaignId: string
   creator: string
-  goalWei: string
+  goalIdr: string
   deadlineTs: number
   totalRaisedWei: string
   status: string
@@ -52,10 +52,19 @@ const statusBadge: Record<string, 'success' | 'warning' | 'error' | 'primary'> =
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const WEI = 1000000000000000000n
+const RATE_SCALE = 100n
 
 function formatAddress(address: string) {
   if (!address) return 'Unknown'
   return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+function idrFromWei(weiValue: string, rateScaled: bigint | null) {
+  if (!rateScaled) return null
+  const wei = BigInt(weiValue || '0')
+  const idrScaled = (wei * rateScaled) / WEI
+  return idrScaled / RATE_SCALE
 }
 
 export function CampaignDetailPage() {
@@ -77,6 +86,7 @@ export function CampaignDetailPage() {
   const [contributorsPage, setContributorsPage] = useState(1)
   const [contributorsTotalPages, setContributorsTotalPages] = useState(1)
   const [contributorsLoading, setContributorsLoading] = useState(false)
+  const [rateScaled, setRateScaled] = useState<bigint | null>(null)
 
   const loadUserContribution = useCallback(
     async (address: string | null) => {
@@ -130,9 +140,29 @@ export function CampaignDetailPage() {
     [campaignId]
   )
 
+  const loadRate = useCallback(async () => {
+    try {
+      if (!campaignId) return
+      const contract = getReadOnlyContract()
+      let rate: bigint = await contract.campaignEthIdrRateScaled(Number(campaignId))
+      if (!rate || rate === 0n) {
+        rate = await contract.latestEthIdrRateScaled()
+      }
+      if (rate > 0n) {
+        setRateScaled(rate)
+      }
+    } catch {
+      setRateScaled(null)
+    }
+  }, [campaignId])
+
   useEffect(() => {
     loadCampaign(true)
   }, [loadCampaign])
+
+  useEffect(() => {
+    loadRate()
+  }, [loadRate])
 
   useEffect(() => {
     loadUserContribution(walletAddress || null)
@@ -260,6 +290,37 @@ export function CampaignDetailPage() {
 
       const signer = await provider.getSigner()
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CROWDFUNDING_ABI, signer)
+      const oracleTx = await contract.requestOracleData(Number(campaignId), 'ETH_IDR', '')
+      const oracleReceipt = await oracleTx.wait()
+
+      let requestId: string | null = null
+      for (const log of oracleReceipt.logs) {
+        try {
+          const parsed = contract.interface.parseLog(log)
+          if (parsed?.name === 'OracleDataRequested') {
+            const [reqCampaignId, reqId] = parsed.args
+            if (Number(reqCampaignId) === Number(campaignId)) {
+              requestId = reqId
+              break
+            }
+          }
+        } catch {}
+      }
+
+      if (!requestId) {
+        throw new Error('Oracle request ID not found')
+      }
+
+      await new Promise<void>((resolve) => {
+        const filter = contract.filters.OracleDataUpdated(BigInt(campaignId), requestId)
+        contract.once(filter, (_campaignId: bigint, _requestId: string, dataKey: string, value: bigint) => {
+          if (dataKey === 'ETH_IDR') {
+            setRateScaled(BigInt(value))
+          }
+          resolve()
+        })
+      })
+
       const tx = await contract.finalizeCampaign(Number(campaignId))
       await tx.wait()
       await loadCampaign(false)
@@ -366,9 +427,12 @@ export function CampaignDetailPage() {
     return <div className="text-center text-red-600 py-12">{error || 'Campaign not found'}</div>
   }
 
-  const goalEth = Number(ethers.formatEther(campaign.goalWei))
-  const raisedEth = Number(ethers.formatEther(campaign.totalRaisedWei))
-  const percent = goalEth > 0 ? Math.min(100, Math.round((raisedEth / goalEth) * 100)) : 0
+  const goalIdr = BigInt(campaign.goalIdr || '0')
+  const raisedIdr = idrFromWei(campaign.totalRaisedWei, rateScaled)
+  const percent =
+    goalIdr > 0n && raisedIdr
+      ? Math.min(100, Math.round((Number(raisedIdr) / Number(goalIdr)) * 100))
+      : 0
   const now = Math.floor(Date.now() / 1000)
   const daysLeft = Math.max(0, Math.ceil((Number(campaign.deadlineTs) - now) / 86400))
   const deadlineLabel = new Date(Number(campaign.deadlineTs) * 1000).toLocaleString()
@@ -376,6 +440,7 @@ export function CampaignDetailPage() {
   const title = campaign.metadata?.title || `Campaign #${campaignId}`
   const description = campaign.metadata?.description || 'No description provided.'
   const userContributionEth = Number(ethers.formatEther(userContribution.amountWei || '0'))
+  const userContributionIdr = idrFromWei(userContribution.amountWei || '0', rateScaled)
 
   const walletConnected = Boolean(walletAddress)
   const deadlinePassed = Number(campaign.deadlineTs) <= now
@@ -460,10 +525,13 @@ export function CampaignDetailPage() {
                 <div className="space-y-3">
                   {contributors.map((c, idx) => {
                     const amountEth = Number(ethers.formatEther(c.amountWei || '0'))
+                    const amountIdr = idrFromWei(c.amountWei || '0', rateScaled)
                     return (
                       <div key={`${c.address}-${idx}`} className="flex justify-between text-sm text-slate-600">
                         <span>{formatAddress(c.address)}</span>
-                        <span className="font-semibold text-slate-800">{amountEth.toLocaleString()} ETH</span>
+                        <span className="font-semibold text-slate-800">
+                          {amountIdr ? `${amountIdr.toLocaleString()} IDR` : `${amountEth.toLocaleString()} ETH`}
+                        </span>
                       </div>
                     )
                   })}
@@ -488,8 +556,10 @@ export function CampaignDetailPage() {
           <div className="sticky top-24 bg-white rounded-2xl shadow-lg border border-slate-100 p-8">
             <div className="mb-6">
               <div className="flex justify-between items-end mb-2">
-                <span className="text-4xl font-bold text-slate-800">{raisedEth.toLocaleString()} ETH</span>
-                <span className="text-slate-500 font-medium mb-1">raised of {goalEth.toLocaleString()} ETH</span>
+                <span className="text-4xl font-bold text-slate-800">
+                  {raisedIdr ? `${raisedIdr.toLocaleString()} IDR` : '—'}
+                </span>
+                <span className="text-slate-500 font-medium mb-1">raised of {goalIdr.toLocaleString()} IDR</span>
               </div>
               <ProgressBar percent={percent} />
               <div className="flex justify-between mt-3 text-sm text-slate-500">
@@ -503,7 +573,9 @@ export function CampaignDetailPage() {
 
             <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
               <div className="text-sm font-semibold text-slate-600 mb-2">Your contribution</div>
-              <div className="text-2xl font-bold text-slate-800">{userContributionEth.toLocaleString()} ETH</div>
+              <div className="text-2xl font-bold text-slate-800">
+                {userContributionIdr ? `${userContributionIdr.toLocaleString()} IDR` : '—'}
+              </div>
               {walletConnected ? (
                 <div className="text-xs text-slate-500 mt-1">
                   {userContributionEth > 0 ? 'Thanks for supporting this campaign.' : 'You have not contributed yet.'}

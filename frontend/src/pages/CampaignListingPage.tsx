@@ -10,7 +10,8 @@ type CampaignListItem = {
   title: string
   description: string
   raisedEth: number
-  goalEth: number
+  raisedIdr: number | null
+  goalIdr: number
   daysLeft: number
   badgeType: 'success' | 'warning' | 'error' | 'primary'
   badgeLabel: string
@@ -35,6 +36,7 @@ export function CampaignListingPage() {
   const [campaigns, setCampaigns] = useState<CampaignListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [rate, setRate] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUCCESS' | 'FAILED'>('ALL')
   const [page, setPage] = useState(1)
@@ -64,8 +66,9 @@ export function CampaignListingPage() {
         const data = await resp.json()
         const items: CampaignListItem[] = (data.items || []).map((c: any) => {
           const statusInfo = statusMap[c.status] || statusMap.ACTIVE
-          const goalEth = Number(ethers.formatEther(c.goalWei))
+          const goalIdr = Number(c.goalIdr || 0)
           const raisedEth = Number(ethers.formatEther(c.totalRaisedWei))
+          const raisedIdr = rate ? raisedEth * rate : null
           const daysLeft = Math.max(0, Math.ceil((Number(c.deadlineTs) - now) / 86400))
           const imageUrl = c.metadata?.image || `https://picsum.photos/seed/cause${c.campaignId}/800/600`
 
@@ -74,7 +77,8 @@ export function CampaignListingPage() {
             title: c.metadata?.title || `Campaign #${c.campaignId}`,
             description: c.metadata?.description || 'No description provided.',
             raisedEth,
-            goalEth,
+            raisedIdr,
+            goalIdr,
             daysLeft,
             badgeType: statusInfo.badgeType,
             badgeLabel: statusInfo.badgeLabel,
@@ -99,7 +103,28 @@ export function CampaignListingPage() {
     return () => {
       active = false
     }
-  }, [page, searchQuery, statusFilter])
+  }, [page, searchQuery, statusFilter, rate])
+
+  useEffect(() => {
+    let active = true
+
+    async function loadRate() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/v1/oracle/rate?pair=ETH_IDR`)
+        if (!resp.ok) return
+        const data = await resp.json()
+        if (active && data?.available && data?.rate) {
+          setRate(Number(data.rate))
+        }
+      } catch {}
+    }
+
+    loadRate()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     setPage(1)
@@ -174,7 +199,10 @@ export function CampaignListingPage() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
             {campaigns.map((campaign) => {
-              const percent = campaign.goalEth > 0 ? Math.min(100, Math.round((campaign.raisedEth / campaign.goalEth) * 100)) : 0
+              const percent =
+                campaign.goalIdr > 0 && campaign.raisedIdr !== null
+                  ? Math.min(100, Math.round((campaign.raisedIdr / campaign.goalIdr) * 100))
+                  : 0
 
               return (
                 <Link
@@ -209,8 +237,10 @@ export function CampaignListingPage() {
 
                     <div className="mt-auto">
                       <div className="flex justify-between text-sm font-semibold mb-2">
-                        <span className="text-slate-800">Raised {campaign.raisedEth.toLocaleString()} ETH</span>
-                        <span className="text-slate-400">of {campaign.goalEth.toLocaleString()} ETH</span>
+                        <span className="text-slate-800">
+                          Raised {campaign.raisedIdr !== null ? `${campaign.raisedIdr.toLocaleString()} IDR` : `${campaign.raisedEth.toLocaleString()} ETH`}
+                        </span>
+                        <span className="text-slate-400">of {campaign.goalIdr.toLocaleString()} IDR</span>
                       </div>
                       <ProgressBar percent={percent} />
                       <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-50">

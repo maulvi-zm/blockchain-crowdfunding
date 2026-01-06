@@ -11,7 +11,7 @@ import { useWallet } from '../contexts/wallet'
 type ContributionItem = {
   campaignId: string
   creator: string
-  goalWei: string
+  goalIdr: string
   deadlineTs: number
   totalRaisedWei: string
   status: string
@@ -46,6 +46,7 @@ export function ActivityPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refundingId, setRefundingId] = useState<string | null>(null)
+  const [rate, setRate] = useState<number | null>(null)
 
   const loadContributions = useCallback(
     async (pageToLoad: number, append: boolean) => {
@@ -82,6 +83,27 @@ export function ActivityPage() {
     }
     loadContributions(1, false)
   }, [loadContributions, walletAddress])
+
+  useEffect(() => {
+    let active = true
+
+    async function loadRate() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/v1/oracle/rate?pair=ETH_IDR`)
+        if (!resp.ok) return
+        const data = await resp.json()
+        if (active && data?.available && data?.rate) {
+          setRate(Number(data.rate))
+        }
+      } catch {}
+    }
+
+    loadRate()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function handleRefund(campaignId: string) {
     if (!window.ethereum) {
@@ -147,6 +169,7 @@ export function ActivityPage() {
             {items.map((item) => {
               const statusInfo = statusMap[item.status] || statusMap.ACTIVE
               const amountEth = Number(ethers.formatEther(item.contribution.amountWei || '0'))
+              const amountIdr = rate ? amountEth * rate : null
               const donatedAt = item.contribution.updatedAt || item.contribution.createdAt
               const dateLabel = donatedAt ? new Date(donatedAt).toLocaleDateString() : 'Unknown date'
               const imageUrl =
@@ -176,7 +199,9 @@ export function ActivityPage() {
                     <div className="flex items-center gap-6">
                       <div>
                         <span className="block text-xs uppercase tracking-wide text-slate-400 font-bold">Amount</span>
-                        <span className="block font-bold text-slate-800">{amountEth.toLocaleString()} ETH</span>
+                        <span className="block font-bold text-slate-800">
+                          {amountIdr !== null ? `${amountIdr.toLocaleString()} IDR` : `${amountEth.toLocaleString()} ETH`}
+                        </span>
                       </div>
                       <div className="h-8 w-px bg-slate-100"></div>
                       {item.status === 'FAILED' ? (

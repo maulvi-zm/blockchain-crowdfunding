@@ -6,14 +6,13 @@ import { CHAIN_ID, CONTRACT_ADDRESS, CROWDFUNDING_ABI } from "../contract/crowdf
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const TEST_DEADLINE_SECONDS = Number(import.meta.env.VITE_TEST_DEADLINE_SECONDS || "60");
-const APP_ENV = import.meta.env.VITE_APP_ENV || "";
 
 export function CreateCampaignPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [goal, setGoal] = useState("");
   const [goalIdr, setGoalIdr] = useState("");
   const [deadlineDate, setDeadlineDate] = useState("");
+  const [deadlineTime, setDeadlineTime] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [rate, setRate] = useState<number | null>(null);
@@ -60,7 +59,7 @@ export function CreateCampaignPage() {
       return;
     }
 
-    if (!title || !description || (!goal && !goalIdr) || !imageFile || !deadlineDate) {
+    if (!title || !description || !goalIdr || !imageFile || !deadlineDate) {
       alert("Please fill all fields");
       return;
     }
@@ -92,23 +91,21 @@ export function CreateCampaignPage() {
         goal_idr: goalIdr ? Number(goalIdr) : null,
       });
 
-      let ethAmount =
-        goalIdr && rate ? (Number(goalIdr) / rate).toFixed(18) : goal || "0";
-
-      console.log("eth: ", ethAmount);
-      const goalWei = ethers.parseEther(ethAmount);
+      const goalIdrValue = BigInt(goalIdr);
 
       const todayStr = new Date().toISOString().slice(0, 10);
       let deadlineTs: number;
-      if (deadlineDate < todayStr && APP_ENV === "local") {
-        deadlineTs = Math.floor(Date.now() / 1000) + TEST_DEADLINE_SECONDS;
+      const timePart = deadlineTime ? `${deadlineTime}:00` : "23:59:59";
+      const selectedDeadline = new Date(`${deadlineDate}T${timePart}`);
+      const latestBlock = await provider.getBlock("latest");
+      const chainNow = latestBlock?.timestamp || Math.floor(Date.now() / 1000);
+      if (deadlineDate < todayStr || Number.isNaN(selectedDeadline.getTime()) || selectedDeadline.getTime() <= chainNow * 1000) {
+        deadlineTs = chainNow + TEST_DEADLINE_SECONDS;
       } else {
-        const deadline = new Date(`${deadlineDate}T23:59:59`);
-        deadlineTs = Math.floor(deadline.getTime() / 1000);
+        deadlineTs = Math.floor(selectedDeadline.getTime() / 1000);
       }
-      if (!deadlineTs || deadlineTs <= Math.floor(Date.now() / 1000)) {
-        alert("Please choose a future deadline date");
-        return;
+      if (!deadlineTs || deadlineTs <= chainNow) {
+        deadlineTs = chainNow + TEST_DEADLINE_SECONDS;
       }
 
       const signer = await provider.getSigner();
@@ -116,7 +113,7 @@ export function CreateCampaignPage() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CROWDFUNDING_ABI, signer);
 
       const tx = await contract.createCampaign(
-        goalWei,
+        goalIdrValue,
         deadlineTs,
         metadataCid
       );
@@ -128,7 +125,6 @@ export function CreateCampaignPage() {
       // reset minimal
       setTitle("");
       setDescription("");
-      setGoal("");
       setGoalIdr("");
       setImageFile(null);
       setImagePreview(null);
@@ -221,7 +217,7 @@ export function CreateCampaignPage() {
 
                 <div className="relative">
                   <input
-                    value={goalIdr || goal}
+                    value={goalIdr}
                     onChange={(e) => setGoalIdr(e.target.value)}
                     type="number"
                     step="1"
@@ -236,7 +232,7 @@ export function CreateCampaignPage() {
                 {rate ? (
                   <div className="text-sm text-slate-500 mt-2">
                     Estimated:{" "}
-                    {(Number(goalIdr || goal || 0) / rate).toFixed(6)} ETH @{" "}
+                    {(Number(goalIdr || 0) / rate).toFixed(6)} ETH @{" "}
                     {rate.toLocaleString()} IDR/ETH
                   </div>
                 ) : (
@@ -252,12 +248,20 @@ export function CreateCampaignPage() {
                   Campaign Deadline
                 </label>
 
-                <input
-                  type="date"
-                  value={deadlineDate}
-                  onChange={(e) => setDeadlineDate(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                />
+                <div className="grid grid-cols-1 gap-3">
+                  <input
+                    type="date"
+                    value={deadlineDate}
+                    onChange={(e) => setDeadlineDate(e.target.value)}
+                    className="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                  />
+                  <input
+                    type="time"
+                    value={deadlineTime}
+                    onChange={(e) => setDeadlineTime(e.target.value)}
+                    className="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                  />
+                </div>
               </div>
             </div>
           </div>
